@@ -1,8 +1,18 @@
 import { GoogleGenAI } from "@google/genai";
 
-// Initialize the Gemini API client
-// Note: In a real production app, this call would be proxied through a backend to protect the API Key.
-const ai = new GoogleGenAI({ apiKey: process.env.API_KEY || '' });
+// Initialize the Gemini API client safely handling the process.env check for browser environments
+const getApiKey = () => {
+  try {
+    if (typeof process !== 'undefined' && process.env && process.env.API_KEY) {
+      return process.env.API_KEY;
+    }
+  } catch (e) {
+    // Ignore error if process is not defined
+  }
+  return '';
+};
+
+const ai = new GoogleGenAI({ apiKey: getApiKey() });
 
 export const generateSalonDescription = async (salonName: string, services: string[]): Promise<string> => {
   try {

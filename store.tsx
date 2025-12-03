@@ -1,8 +1,7 @@
 import React, { createContext, useContext, useState } from 'react';
 import { Salon, StoreContextType, Appointment, PlanType } from './types';
-import { v4 as uuidv4 } from 'uuid'; // Just mimicking uuid
 
-// Simple mock UUID generator since we don't have the library
+// Simple mock UUID generator
 const generateId = () => Math.random().toString(36).substr(2, 9);
 
 const INITIAL_SALONS: Salon[] = [
