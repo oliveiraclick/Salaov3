@@ -1,132 +1,271 @@
 import React, { useState } from 'react';
 import { useStore } from '../store';
-import { Button, Card, Input, Badge } from '../components/UI';
-import { LayoutDashboard, Users, Plus, Trash2, ExternalLink, LogOut } from 'lucide-react';
-import { Salon } from '../types';
+import { Button, Card, Input, Badge, AppShell, MobileNav, MobileNavItem } from '../components/UI';
+import { LayoutDashboard, Users, Plus, LogOut, Tags, DollarSign, Pen, Ban, CheckCircle, TrendingUp } from 'lucide-react';
+import { Salon, SaaSPlan } from '../types';
 
 export const SuperAdmin: React.FC<{ 
   onNavigate: (view: 'tenant' | 'public', salonId: string) => void,
   onLogout: () => void 
 }> = ({ onNavigate, onLogout }) => {
-  const { salons, createSalon, updateSalon } = useStore();
-  const [newSalonName, setNewSalonName] = useState('');
+  const { salons, saasPlans, coupons, createSalon, updateSaaSPlan, createCoupon, toggleSalonStatus } = useStore();
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'clients' | 'plans' | 'coupons'>('dashboard');
+  
+  // Local states for forms
+  const [newCouponCode, setNewCouponCode] = useState('');
+  const [newCouponPercent, setNewCouponPercent] = useState('');
+  const [editingPlan, setEditingPlan] = useState<SaaSPlan | null>(null);
 
-  const handleCreate = () => {
-    if (!newSalonName) return;
-    createSalon(newSalonName, 'start');
-    setNewSalonName('');
-  };
+  // Metrics
+  const totalMRR = salons.reduce((acc, s) => acc + (s.subscriptionStatus === 'active' ? s.monthlyFee : 0), 0);
+  const totalSalons = salons.length;
+  const activeSalons = salons.filter(s => s.subscriptionStatus === 'active').length;
+  const lateSalons = salons.filter(s => s.subscriptionStatus === 'late').length;
 
-  const togglePlan = (salon: Salon) => {
-    updateSalon({
-      ...salon,
-      plan: salon.plan === 'start' ? 'professional' : 'start'
-    });
+  const Header = (
+      <div className="px-4 py-3 bg-gray-900 text-white flex justify-between items-center shadow-md">
+          <div className="font-bold flex items-center gap-2">
+              <DollarSign className="w-5 h-5 text-green-400" /> Admin Financeiro
+          </div>
+          <button onClick={onLogout} className="text-xs text-gray-300 hover:text-white font-medium flex items-center gap-1">
+              <LogOut className="w-3 h-3" /> Sair
+          </button>
+      </div>
+  );
+
+  const renderContent = () => {
+      switch(activeTab) {
+          case 'dashboard':
+              return (
+                  <div className="space-y-4">
+                      <div className="grid grid-cols-2 gap-4">
+                          <Card className="p-4 bg-gradient-to-br from-gray-900 to-gray-800 text-white border-0">
+                              <div className="flex items-center gap-2 text-gray-400 text-xs uppercase mb-1">
+                                  <DollarSign className="w-4 h-4" /> MRR (Mensal)
+                              </div>
+                              <div className="text-2xl font-bold">R$ {totalMRR.toFixed(2)}</div>
+                          </Card>
+                          <Card className="p-4 border-l-4 border-brand-500">
+                              <div className="text-gray-500 text-xs uppercase mb-1">Total Salões</div>
+                              <div className="text-2xl font-bold text-gray-900">{totalSalons}</div>
+                              <div className="text-[10px] text-green-600 font-medium">{activeSalons} ativos</div>
+                          </Card>
+                      </div>
+
+                      <Card title="Saúde da Carteira">
+                          <div className="space-y-4">
+                             <div className="flex items-center justify-between">
+                                 <span className="text-sm text-gray-600">Em dia</span>
+                                 <div className="flex items-center gap-2">
+                                     <div className="w-32 h-2 bg-gray-100 rounded-full overflow-hidden">
+                                         <div className="h-full bg-green-500" style={{ width: `${(activeSalons / totalSalons) * 100}%` }}></div>
+                                     </div>
+                                     <span className="text-xs font-bold">{activeSalons}</span>
+                                 </div>
+                             </div>
+                             <div className="flex items-center justify-between">
+                                 <span className="text-sm text-gray-600">Inadimplentes</span>
+                                 <div className="flex items-center gap-2">
+                                     <div className="w-32 h-2 bg-gray-100 rounded-full overflow-hidden">
+                                         <div className="h-full bg-red-500" style={{ width: `${(lateSalons / totalSalons) * 100}%` }}></div>
+                                     </div>
+                                     <span className="text-xs font-bold">{lateSalons}</span>
+                                 </div>
+                             </div>
+                          </div>
+                      </Card>
+
+                      <div className="grid grid-cols-2 gap-4">
+                          <div className="bg-blue-50 p-4 rounded-xl border border-blue-100">
+                              <div className="text-blue-600 font-bold text-lg">{coupons.length}</div>
+                              <div className="text-xs text-blue-400">Cupons Ativos</div>
+                          </div>
+                          <div className="bg-purple-50 p-4 rounded-xl border border-purple-100">
+                              <div className="text-purple-600 font-bold text-lg">{saasPlans.length}</div>
+                              <div className="text-xs text-purple-400">Planos Ofertados</div>
+                          </div>
+                      </div>
+                  </div>
+              );
+
+          case 'clients':
+              return (
+                  <div className="space-y-3">
+                      <div className="flex justify-between items-center mb-2 px-1">
+                          <h3 className="font-bold text-gray-700">Gestão de Assinaturas</h3>
+                          <Badge color="gray">{salons.length} contratos</Badge>
+                      </div>
+                      
+                      {salons.map(salon => (
+                          <div key={salon.id} className="bg-white p-4 rounded-xl border border-gray-100 shadow-sm">
+                              <div className="flex justify-between items-start mb-2">
+                                  <div>
+                                      <h4 className="font-bold text-gray-900">{salon.name}</h4>
+                                      <p className="text-xs text-gray-500">Desde {new Date().toLocaleDateString()}</p>
+                                  </div>
+                                  <Badge color={salon.subscriptionStatus === 'active' ? 'green' : 'red'}>
+                                      {salon.subscriptionStatus === 'active' ? 'Em dia' : 'Atrasado'}
+                                  </Badge>
+                              </div>
+                              
+                              <div className="flex items-center gap-4 py-3 border-t border-gray-50 mt-2">
+                                  <div>
+                                      <div className="text-[10px] text-gray-400 uppercase">Plano</div>
+                                      <div className="font-medium text-sm capitalize">{salon.plan}</div>
+                                  </div>
+                                  <div>
+                                      <div className="text-[10px] text-gray-400 uppercase">Valor</div>
+                                      <div className="font-medium text-sm">R$ {salon.monthlyFee?.toFixed(2)}</div>
+                                  </div>
+                                  <div>
+                                      <div className="text-[10px] text-gray-400 uppercase">Cobrança</div>
+                                      <div className="font-medium text-sm text-gray-600">
+                                          {new Date(salon.nextBillingDate).getDate()}/{new Date(salon.nextBillingDate).getMonth()+1}
+                                      </div>
+                                  </div>
+                              </div>
+
+                              <div className="flex gap-2 mt-2">
+                                  {salon.subscriptionStatus === 'active' ? (
+                                      <Button variant="outline" className="w-full text-xs py-1.5 h-auto text-red-600 border-red-100 hover:bg-red-50" onClick={() => toggleSalonStatus(salon.id)}>
+                                          <Ban className="w-3 h-3 mr-1 inline" /> Bloquear / Marcar Atrasado
+                                      </Button>
+                                  ) : (
+                                      <Button variant="outline" className="w-full text-xs py-1.5 h-auto text-green-600 border-green-100 hover:bg-green-50" onClick={() => toggleSalonStatus(salon.id)}>
+                                          <CheckCircle className="w-3 h-3 mr-1 inline" /> Confirmar Pagamento
+                                      </Button>
+                                  )}
+                              </div>
+                          </div>
+                      ))}
+                  </div>
+              );
+
+          case 'plans':
+              return (
+                  <div className="space-y-4">
+                      <p className="text-sm text-gray-500 px-1">
+                          Edite os planos abaixo. As alterações refletem imediatamente na Landing Page.
+                      </p>
+                      
+                      {saasPlans.map(plan => (
+                          <div key={plan.id} className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+                              <div className="p-4 bg-gray-50 border-b border-gray-200 flex justify-between items-center">
+                                  <div className="font-bold text-gray-900">{plan.name}</div>
+                                  {plan.isRecommended && <Badge color="blue">Destaque</Badge>}
+                              </div>
+                              
+                              {editingPlan?.id === plan.id ? (
+                                  <div className="p-4 space-y-3 bg-brand-50/50">
+                                      <Input 
+                                          label="Preço Mensal (R$)" 
+                                          type="number" 
+                                          value={editingPlan.price} 
+                                          onChange={e => setEditingPlan({...editingPlan, price: parseFloat(e.target.value)})} 
+                                          className="bg-white"
+                                      />
+                                      <Input 
+                                          label="Adicional por Profissional (R$)" 
+                                          type="number" 
+                                          value={editingPlan.perProfessionalPrice} 
+                                          onChange={e => setEditingPlan({...editingPlan, perProfessionalPrice: parseFloat(e.target.value)})} 
+                                          className="bg-white"
+                                      />
+                                      <div className="flex gap-2">
+                                          <Button className="flex-1" onClick={() => { updateSaaSPlan(editingPlan); setEditingPlan(null); }}>Salvar</Button>
+                                          <Button variant="outline" className="flex-1" onClick={() => setEditingPlan(null)}>Cancelar</Button>
+                                      </div>
+                                  </div>
+                              ) : (
+                                  <div className="p-4">
+                                      <div className="flex justify-between items-end mb-4">
+                                          <div className="text-2xl font-extrabold text-gray-900">R$ {plan.price}</div>
+                                          <div className="text-xs text-gray-500 mb-1">+ R$ {plan.perProfessionalPrice} / prof</div>
+                                      </div>
+                                      <ul className="text-xs text-gray-500 space-y-1 mb-4">
+                                          {plan.features.slice(0,3).map((f, i) => <li key={i}>• {f}</li>)}
+                                      </ul>
+                                      <Button variant="outline" className="w-full" onClick={() => setEditingPlan(plan)}>
+                                          <Pen className="w-3 h-3 mr-2 inline" /> Editar Preço
+                                      </Button>
+                                  </div>
+                              )}
+                          </div>
+                      ))}
+                  </div>
+              );
+
+          case 'coupons':
+              return (
+                  <div className="space-y-4">
+                      <Card className="p-4 bg-brand-50 border-brand-100">
+                          <h3 className="font-bold text-brand-900 mb-3 text-sm">Criar Novo Cupom</h3>
+                          <div className="flex gap-2 mb-2">
+                              <Input 
+                                  placeholder="Código (ex: BLACK50)" 
+                                  className="bg-white mb-0" 
+                                  value={newCouponCode}
+                                  onChange={e => setNewCouponCode(e.target.value.toUpperCase())}
+                              />
+                              <Input 
+                                  type="number" 
+                                  placeholder="%" 
+                                  className="w-20 bg-white mb-0" 
+                                  value={newCouponPercent}
+                                  onChange={e => setNewCouponPercent(e.target.value)}
+                              />
+                          </div>
+                          <Button 
+                              className="w-full" 
+                              onClick={() => {
+                                  if(newCouponCode && newCouponPercent) {
+                                      createCoupon(newCouponCode, parseFloat(newCouponPercent));
+                                      setNewCouponCode('');
+                                      setNewCouponPercent('');
+                                  }
+                              }}
+                          >
+                              Criar Cupom
+                          </Button>
+                      </Card>
+
+                      <div className="space-y-2">
+                          <h4 className="text-xs font-bold text-gray-500 uppercase px-1">Cupons Ativos</h4>
+                          {coupons.length === 0 && <p className="text-sm text-gray-400 px-1">Nenhum cupom criado.</p>}
+                          {coupons.map(coupon => (
+                              <div key={coupon.id} className="bg-white p-3 rounded-lg border border-gray-100 flex justify-between items-center">
+                                  <div>
+                                      <div className="font-mono font-bold text-lg text-brand-600">{coupon.code}</div>
+                                      <div className="text-xs text-gray-500">{coupon.discountPercent}% de desconto</div>
+                                  </div>
+                                  <div className="text-right">
+                                      <Badge color="blue">{coupon.uses} usos</Badge>
+                                      <div className="text-[10px] text-green-600 font-bold mt-1">ATIVO</div>
+                                  </div>
+                              </div>
+                          ))}
+                      </div>
+                  </div>
+              );
+          default: return null;
+      }
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 p-8">
-      <div className="max-w-6xl mx-auto">
-        <div className="flex justify-between items-center mb-8">
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
-              <Users className="w-8 h-8 text-brand-600" />
-              SaaS Super Admin
-            </h1>
-            <p className="text-gray-500">Gestão global de assinantes e planos</p>
-          </div>
-          <div className="flex gap-2 items-center">
-             <Button variant="outline" className="mr-4 text-red-600 hover:bg-red-50 border-red-200" onClick={onLogout}>
-                <LogOut className="w-4 h-4 mr-2 inline" />
-                Sair
-             </Button>
-             <div className="flex">
-                <Input 
-                   placeholder="Nome do novo salão..." 
-                   value={newSalonName} 
-                   onChange={(e) => setNewSalonName(e.target.value)}
-                   className="rounded-r-none border-r-0 mb-0 w-64"
-                />
-                <Button onClick={handleCreate} className="rounded-l-none h-[42px] mt-[1px]">
-                  <Plus className="w-4 h-4 mr-2 inline" />
-                  Criar Salão
-                </Button>
-             </div>
-          </div>
+    <AppShell
+        header={Header}
+        bottomNav={
+            <MobileNav>
+                <MobileNavItem icon={<LayoutDashboard />} label="Dashboard" active={activeTab === 'dashboard'} onClick={() => setActiveTab('dashboard')} />
+                <MobileNavItem icon={<Users />} label="Clientes" active={activeTab === 'clients'} onClick={() => setActiveTab('clients')} />
+                <MobileNavItem icon={<DollarSign />} label="Planos" active={activeTab === 'plans'} onClick={() => setActiveTab('plans')} />
+                <MobileNavItem icon={<Tags />} label="Cupons" active={activeTab === 'coupons'} onClick={() => setActiveTab('coupons')} />
+            </MobileNav>
+        }
+    >
+        <div className="p-4 pb-24">
+            {renderContent()}
         </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-            <Card className="border-l-4 border-l-brand-500">
-                <div className="text-sm text-gray-500">Total de Salões</div>
-                <div className="text-3xl font-bold text-gray-800">{salons.length}</div>
-            </Card>
-            <Card className="border-l-4 border-l-blue-500">
-                <div className="text-sm text-gray-500">Plano Profissional</div>
-                <div className="text-3xl font-bold text-gray-800">{salons.filter(s => s.plan === 'professional').length}</div>
-            </Card>
-            <Card className="border-l-4 border-l-green-500">
-                <div className="text-sm text-gray-500">Receita Estimada (Mensal)</div>
-                <div className="text-3xl font-bold text-gray-800">
-                    R$ {salons.reduce((acc, s) => acc + (s.plan === 'professional' ? 199 : 49), 0)}
-                </div>
-            </Card>
-        </div>
-
-        <Card title="Lista de Clientes (Salões)">
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead>
-                <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Salão</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Plano Atual</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Ações</th>
-                </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
-                {salons.map(salon => (
-                  <tr key={salon.id} className="hover:bg-gray-50 transition-colors">
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="flex items-center">
-                        <div className="flex-shrink-0 h-10 w-10 bg-brand-100 rounded-full flex items-center justify-center text-brand-600 font-bold">
-                          {salon.name.substring(0, 2).toUpperCase()}
-                        </div>
-                        <div className="ml-4">
-                          <div className="text-sm font-medium text-gray-900">{salon.name}</div>
-                          <div className="text-sm text-gray-500">/{salon.slug}</div>
-                        </div>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium cursor-pointer select-none ${
-                        salon.plan === 'professional' ? 'bg-purple-100 text-purple-800' : 'bg-gray-100 text-gray-800'
-                      }`}
-                      onClick={() => togglePlan(salon)}
-                      title="Clique para alternar o plano"
-                      >
-                        {salon.plan === 'professional' ? 'PROFESSIONAL' : 'START'}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <Badge color="green">Ativo</Badge>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium flex justify-end gap-2">
-                      <Button variant="outline" className="text-xs py-1" onClick={() => onNavigate('tenant', salon.id)}>
-                        <LayoutDashboard className="w-3 h-3 mr-1 inline" />
-                        Acessar Painel
-                      </Button>
-                      <Button variant="secondary" className="text-xs py-1" onClick={() => onNavigate('public', salon.id)}>
-                        <ExternalLink className="w-3 h-3 mr-1 inline" />
-                        Ver Vitrine
-                      </Button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </Card>
-      </div>
-    </div>
+    </AppShell>
   );
 };

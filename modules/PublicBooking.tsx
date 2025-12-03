@@ -1,35 +1,103 @@
-import React, { useState } from 'react';
+
+import React, { useState, useEffect } from 'react';
 import { useStore } from '../store';
-import { Button, Card, Badge } from '../components/UI';
-import { Calendar, Clock, MapPin, CheckCircle, ArrowRight, User } from 'lucide-react';
+import { Button, AppShell, MobileNav, MobileNavItem } from '../components/UI';
+import { Calendar, Clock, MapPin, CheckCircle, User, ChevronLeft, Scissors, Lock, Home, Globe, Instagram, Facebook, MessageCircle } from 'lucide-react';
 import { Service, Professional } from '../types';
 
-export const PublicBooking: React.FC<{ salonId: string; onBack: () => void }> = ({ salonId, onBack }) => {
-  const { salons, addAppointment } = useStore();
+export const PublicBooking: React.FC<{ 
+  salonId: string; 
+  professionalId?: string; // Optional Deep Link Param
+  onBack: () => void;
+  onAdminAccess: (salonId: string) => void; 
+}> = ({ salonId, professionalId, onBack, onAdminAccess }) => {
+  const { salons, addAppointment, saveClient, getClientByPhone } = useStore();
   const salon = salons.find(s => s.id === salonId);
 
   // Booking Flow State
-  const [step, setStep] = useState<1 | 2 | 3 | 4>(1);
+  const [step, setStep] = useState<0 | 1 | 2 | 3 | 4>(0); // 0 = Profile/Showcase
   const [selectedService, setSelectedService] = useState<Service | null>(null);
   const [selectedProfessional, setSelectedProfessional] = useState<Professional | null>(null);
   const [selectedDate, setSelectedDate] = useState<string>('');
   const [selectedTime, setSelectedTime] = useState<string>('');
+  
+  // Client Identification State
+  const [clientPhone, setClientPhone] = useState('');
   const [clientName, setClientName] = useState('');
+  const [clientBirthDate, setClientBirthDate] = useState('');
+  const [isNewClient, setIsNewClient] = useState(false);
+  const [clientVerified, setClientVerified] = useState(false);
+
+  // Handle Deep Link
+  useEffect(() => {
+      if (professionalId && salon) {
+          const pro = salon.professionals.find(p => p.id === professionalId);
+          if (pro) {
+              setSelectedProfessional(pro);
+              // We don't skip step 0, but we will skip step 2 later
+          }
+      }
+  }, [professionalId, salon]);
 
   if (!salon) return <div>Salão não encontrado</div>;
 
+  const generateTimeSlots = () => {
+      if (!selectedDate || !salon.openTime || !salon.closeTime) return [];
+      const start = parseInt(salon.openTime.split(':')[0]) * 60 + parseInt(salon.openTime.split(':')[1]);
+      const end = parseInt(salon.closeTime.split(':')[0]) * 60 + parseInt(salon.closeTime.split(':')[1]);
+      const interval = salon.slotInterval || 30;
+      const slots = [];
+      for (let time = start; time < end; time += interval) {
+          const hours = Math.floor(time / 60);
+          const minutes = time % 60;
+          const timeString = `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
+          
+          const isBlocked = salon.blockedPeriods?.some(block => {
+              if (block.date !== selectedDate) return false;
+              if (block.professionalId && block.professionalId !== selectedProfessional?.id) return false;
+              return true;
+          });
+
+          if (!isBlocked) slots.push(timeString);
+      }
+      return slots;
+  };
+
+  const timeSlots = generateTimeSlots();
+
+  const handleVerifyPhone = () => {
+    if (clientPhone.length >= 8) {
+        const existingClient = getClientByPhone(clientPhone);
+        if (existingClient) {
+            setClientName(existingClient.name);
+            setClientBirthDate(existingClient.birthDate);
+            setIsNewClient(false);
+            setClientVerified(true);
+        } else {
+            setIsNewClient(true);
+            setClientVerified(true);
+        }
+    }
+  };
+
   const handleBooking = () => {
-    if (selectedService && selectedProfessional && selectedDate && selectedTime && clientName) {
-      // Create a mock date combining the two
+    if (selectedService && selectedProfessional && selectedDate && selectedTime && clientName && clientPhone) {
+      if (isNewClient) {
+          saveClient({
+              id: Math.random().toString(36).substr(2, 9),
+              name: clientName,
+              phone: clientPhone,
+              birthDate: clientBirthDate
+          });
+      }
       const finalDate = new Date(`${selectedDate}T${selectedTime}:00`).toISOString();
-      
       addAppointment(salon.id, {
         id: Math.random().toString(36).substr(2, 9),
         salonId: salon.id,
         serviceId: selectedService.id,
         professionalId: selectedProfessional.id,
         clientName: clientName,
-        clientPhone: '000000000',
+        clientPhone: clientPhone,
         date: finalDate,
         status: 'scheduled',
         price: selectedService.price
@@ -38,73 +106,176 @@ export const PublicBooking: React.FC<{ salonId: string; onBack: () => void }> = 
     }
   };
 
-  const Steps = () => (
-    <div className="flex justify-center mb-8">
-      {[1, 2, 3].map((i) => (
-        <div key={i} className="flex items-center">
-          <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm
-            ${step >= i ? 'bg-brand-600 text-white' : 'bg-gray-200 text-gray-500'}
-          `}>
-            {i}
+  const handleServiceSelect = (svc: Service) => {
+      setSelectedService(svc);
+      if (selectedProfessional) {
+          // If Deep Linked or pre-selected, skip pro selection
+          setStep(3);
+      } else {
+          setStep(2);
+      }
+  };
+
+  const Header = (
+      <div className="flex items-center gap-3 px-4 py-3 bg-white border-b border-gray-100 shadow-sm z-20 relative">
+          <button onClick={step === 0 ? onBack : () => setStep(step - 1 as any)} className="p-2 -ml-2 text-gray-600 rounded-full active:bg-gray-100">
+             <ChevronLeft className="w-6 h-6" />
+          </button>
+          
+          <button 
+             className="relative flex-shrink-0"
+             onClick={() => onAdminAccess(salon.id)}
+          >
+               <div className="w-10 h-10 bg-brand-50 rounded-full overflow-hidden border border-gray-100">
+                   {salon.coverImage ? (
+                        <img src={salon.coverImage} className="w-full h-full object-cover" />
+                   ) : (
+                        <div className="w-full h-full flex items-center justify-center text-brand-600 font-bold">
+                            {salon.name[0]}
+                        </div>
+                   )}
+               </div>
+               {/* Badge Cadeado Fixo e Visível */}
+               <div className="absolute -bottom-1 -right-1 bg-white p-0.5 rounded-full shadow-sm z-10">
+                   <div className="bg-gray-900 p-1.5 rounded-full">
+                        <Lock className="w-3 h-3 text-white" />
+                   </div>
+               </div>
+          </button>
+          
+          <div className="flex-1 min-w-0">
+               <h1 className="font-bold text-gray-900 truncate text-base leading-tight">{salon.name}</h1>
+               {selectedProfessional && (
+                   <div className="text-xs font-bold text-brand-600 flex items-center gap-1 animate-pulse">
+                       Agendando com {selectedProfessional.name}
+                   </div>
+               )}
           </div>
-          {i < 3 && <div className={`w-16 h-1 bg-gray-200 ${step > i ? 'bg-brand-600' : ''}`} />}
-        </div>
-      ))}
-    </div>
+      </div>
   );
 
   return (
-    <div className="min-h-screen bg-gray-50 font-sans">
-      {/* Header / Hero */}
-      <header className="bg-white shadow-sm border-b border-gray-100 sticky top-0 z-50">
-        <div className="max-w-4xl mx-auto px-4 py-4 flex justify-between items-center">
-            <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-brand-100 rounded-full flex items-center justify-center text-brand-700 font-bold">
-                    {salon.name.substring(0, 2).toUpperCase()}
+    <AppShell
+        header={Header}
+        bottomNav={
+            step === 0 ? (
+                // Bottom Nav for Showcase
+                <div className="fixed bottom-0 left-0 right-0 p-4 bg-white border-t border-gray-100 pb-safe-area shadow-2xl z-50">
+                    <Button className="w-full py-4 text-lg font-bold shadow-brand-500/30 shadow-lg" onClick={() => setStep(1)}>
+                        Agendar Horário
+                    </Button>
                 </div>
-                <div>
-                    <h1 className="font-bold text-gray-900">{salon.name}</h1>
-                    <div className="flex items-center text-xs text-gray-500 gap-1">
-                        <MapPin className="w-3 h-3" />
-                        {salon.address}
+            ) : (
+                // Standard Nav for Booking Flow
+                <MobileNav>
+                    <MobileNavItem icon={<Home />} label="Diretório" active={false} onClick={onBack} />
+                    <MobileNavItem icon={<Calendar />} label="Agendar" active={true} onClick={() => {}} />
+                    <MobileNavItem icon={<User />} label="Admin" onClick={() => onAdminAccess(salon.id)} />
+                </MobileNav>
+            )
+        }
+    >
+        <div className={`p-4 ${step === 0 ? 'pb-24' : 'pb-8'}`}>
+            
+            {/* Step 0: Salon Showcase / Profile */}
+            {step === 0 && (
+                <div className="space-y-6 animate-in fade-in duration-500">
+                    {/* Cover Image */}
+                    <div className="w-full h-48 bg-gray-200 rounded-2xl overflow-hidden shadow-inner mb-4 relative">
+                        <img 
+                            src={salon.coverImage || `https://picsum.photos/seed/${salon.id}/800/400`} 
+                            className="w-full h-full object-cover" 
+                        />
+                        <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent flex items-end p-4">
+                             <div className="text-white">
+                                 <h2 className="text-2xl font-bold">{salon.name}</h2>
+                                 <p className="text-sm opacity-90 flex items-center gap-1">
+                                     <MapPin className="w-3 h-3" /> {salon.address}
+                                 </p>
+                             </div>
+                        </div>
+                    </div>
+
+                    {/* About Us */}
+                    <div className="bg-white p-4 rounded-xl border border-gray-100 shadow-sm">
+                        <h3 className="font-bold text-gray-900 mb-2">Sobre Nós</h3>
+                        <p className="text-sm text-gray-600 leading-relaxed">
+                            {salon.aboutUs || "Bem-vindo ao nosso espaço! Oferecemos os melhores serviços para cuidar da sua beleza e bem-estar."}
+                        </p>
+                    </div>
+
+                    {/* Socials */}
+                    <div className="grid grid-cols-4 gap-2">
+                        {salon.socials?.whatsapp && (
+                            <a href={`https://wa.me/${salon.socials.whatsapp}`} target="_blank" className="bg-green-50 p-3 rounded-xl flex flex-col items-center gap-1 text-green-700 hover:bg-green-100 transition-colors">
+                                <MessageCircle className="w-6 h-6" />
+                                <span className="text-[10px] font-bold">Whats</span>
+                            </a>
+                        )}
+                        {salon.socials?.instagram && (
+                            <a href={`https://instagram.com/${salon.socials.instagram.replace('@','')}`} target="_blank" className="bg-purple-50 p-3 rounded-xl flex flex-col items-center gap-1 text-purple-700 hover:bg-purple-100 transition-colors">
+                                <Instagram className="w-6 h-6" />
+                                <span className="text-[10px] font-bold">Insta</span>
+                            </a>
+                        )}
+                        {salon.socials?.facebook && (
+                            <a href={salon.socials.facebook} target="_blank" className="bg-blue-50 p-3 rounded-xl flex flex-col items-center gap-1 text-blue-700 hover:bg-blue-100 transition-colors">
+                                <Facebook className="w-6 h-6" />
+                                <span className="text-[10px] font-bold">Face</span>
+                            </a>
+                        )}
+                        {salon.socials?.website && (
+                            <a href={salon.socials.website} target="_blank" className="bg-gray-50 p-3 rounded-xl flex flex-col items-center gap-1 text-gray-700 hover:bg-gray-100 transition-colors">
+                                <Globe className="w-6 h-6" />
+                                <span className="text-[10px] font-bold">Site</span>
+                            </a>
+                        )}
+                    </div>
+
+                    {/* Quick Info */}
+                    <div className="bg-gray-50 p-4 rounded-xl border border-gray-100">
+                         <div className="flex justify-between text-sm mb-2">
+                             <span className="text-gray-500">Horário de Hoje</span>
+                             <span className="font-bold text-gray-900">{salon.openTime} às {salon.closeTime}</span>
+                         </div>
+                         <div className="flex justify-between text-sm">
+                             <span className="text-gray-500">Profissionais</span>
+                             <div className="flex -space-x-2">
+                                 {salon.professionals.slice(0, 4).map(p => (
+                                     <img key={p.id} src={p.avatarUrl} className="w-6 h-6 rounded-full border border-white" />
+                                 ))}
+                             </div>
+                         </div>
                     </div>
                 </div>
-            </div>
-            <button onClick={onBack} className="text-xs text-gray-400 hover:text-gray-600 underline">
-                Simular outro usuário
-            </button>
-        </div>
-      </header>
+            )}
 
-      <main className="max-w-3xl mx-auto px-4 py-8">
-        
-        {step < 4 && (
-             <div className="mb-8 text-center">
-                <h2 className="text-2xl font-bold text-gray-900 mb-2">{salon.description}</h2>
-                <p className="text-gray-500">Agende seu horário em poucos passos.</p>
-             </div>
-        )}
+            {/* Progress Bar for Booking Steps */}
+            {step > 0 && step < 4 && (
+                <div className="flex gap-2 mb-6 px-1">
+                    {[1, 2, 3].map(i => (
+                        <div key={i} className={`h-1.5 flex-1 rounded-full transition-all duration-300 ${step >= i ? 'bg-brand-600' : 'bg-gray-200'}`} />
+                    ))}
+                </div>
+            )}
 
-        <Steps />
-
-        <div className="bg-white rounded-2xl shadow-lg border border-gray-100 overflow-hidden min-h-[400px]">
             {step === 1 && (
-                <div className="p-6 sm:p-8">
-                    <h3 className="text-xl font-bold mb-6 text-gray-800">Selecione o Serviço</h3>
+                <div className="animate-in slide-in-from-right-4 duration-300">
+                    <h2 className="text-xl font-bold text-gray-900 mb-4">Escolha o Serviço</h2>
                     <div className="space-y-3">
                         {salon.services.map(svc => (
                             <div 
                                 key={svc.id}
-                                onClick={() => { setSelectedService(svc); setStep(2); }}
-                                className="group flex justify-between items-center p-4 border border-gray-200 rounded-xl cursor-pointer hover:border-brand-500 hover:bg-brand-50 transition-all"
+                                onClick={() => handleServiceSelect(svc)}
+                                className="bg-white p-4 rounded-xl border border-gray-100 shadow-sm flex justify-between items-center active:scale-[0.98] transition-transform"
                             >
                                 <div>
-                                    <h4 className="font-semibold text-gray-800 group-hover:text-brand-700">{svc.name}</h4>
-                                    <span className="text-sm text-gray-500 flex items-center gap-1">
-                                        <Clock className="w-3 h-3" /> {svc.durationMinutes} min
-                                    </span>
+                                    <h4 className="font-bold text-gray-800">{svc.name}</h4>
+                                    <span className="text-xs text-gray-500">{svc.durationMinutes} min</span>
                                 </div>
-                                <span className="font-bold text-brand-600">R$ {svc.price.toFixed(2)}</span>
+                                <span className="font-bold text-brand-600 bg-brand-50 px-2 py-1 rounded text-sm">
+                                    R$ {svc.price.toFixed(0)}
+                                </span>
                             </div>
                         ))}
                     </div>
@@ -112,140 +283,124 @@ export const PublicBooking: React.FC<{ salonId: string; onBack: () => void }> = 
             )}
 
             {step === 2 && (
-                <div className="p-6 sm:p-8">
-                     <div className="flex items-center gap-2 mb-6">
-                        <button onClick={() => setStep(1)} className="text-sm text-gray-400 hover:text-gray-600">Voltar</button>
-                        <h3 className="text-xl font-bold text-gray-800">Escolha o Profissional</h3>
-                     </div>
-                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="animate-in slide-in-from-right-4 duration-300">
+                     <h2 className="text-xl font-bold text-gray-900 mb-4">Escolha o Profissional</h2>
+                     <div className="grid grid-cols-2 gap-3">
+                        <div 
+                             onClick={() => { setSelectedProfessional(salon.professionals[0]); setStep(3); }}
+                             className="bg-white p-4 rounded-xl border border-dashed border-gray-300 flex flex-col items-center justify-center text-center gap-2 active:bg-gray-50"
+                        >
+                            <div className="w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center text-gray-400">
+                                <User className="w-6 h-6" />
+                            </div>
+                            <span className="text-sm font-medium text-gray-600">Qualquer um</span>
+                        </div>
                         {salon.professionals.map(pro => (
                             <div 
                                 key={pro.id}
                                 onClick={() => { setSelectedProfessional(pro); setStep(3); }}
-                                className="flex items-center gap-4 p-4 border border-gray-200 rounded-xl cursor-pointer hover:border-brand-500 hover:bg-brand-50 transition-all"
+                                className="bg-white p-4 rounded-xl border border-gray-100 shadow-sm flex flex-col items-center justify-center text-center gap-2 active:scale-[0.98] transition-transform"
                             >
                                 <img src={pro.avatarUrl} alt={pro.name} className="w-12 h-12 rounded-full object-cover" />
                                 <div>
-                                    <h4 className="font-semibold text-gray-900">{pro.name}</h4>
-                                    <span className="text-xs text-gray-500">Especialista</span>
+                                    <h4 className="font-bold text-sm text-gray-900">{pro.name}</h4>
                                 </div>
                             </div>
                         ))}
-                        <div 
-                             onClick={() => { setSelectedProfessional(salon.professionals[0]); setStep(3); }} // Fallback to first for logic simplicity
-                             className="flex items-center gap-4 p-4 border border-dashed border-gray-300 rounded-xl cursor-pointer hover:bg-gray-50 transition-all"
-                        >
-                            <div className="w-12 h-12 rounded-full bg-gray-100 flex items-center justify-center text-gray-400">
-                                <User className="w-6 h-6" />
-                            </div>
-                            <div>
-                                <h4 className="font-medium text-gray-600">Qualquer Profissional</h4>
-                                <span className="text-xs text-gray-400">Maior disponibilidade</span>
-                            </div>
-                        </div>
                      </div>
                 </div>
             )}
 
             {step === 3 && (
-                <div className="p-6 sm:p-8">
-                     <div className="flex items-center gap-2 mb-6">
-                        <button onClick={() => setStep(2)} className="text-sm text-gray-400 hover:text-gray-600">Voltar</button>
-                        <h3 className="text-xl font-bold text-gray-800">Data e Hora</h3>
+                <div className="animate-in slide-in-from-right-4 duration-300 space-y-6">
+                     <div>
+                        <h2 className="text-xl font-bold text-gray-900 mb-2">Data e Hora</h2>
+                        <input 
+                            type="date" 
+                            className="w-full border border-gray-200 rounded-xl px-4 py-3 bg-white font-medium text-gray-900 outline-none focus:border-brand-500 mb-4"
+                            value={selectedDate}
+                            onChange={(e) => { setSelectedDate(e.target.value); setSelectedTime(''); }}
+                        />
+                        
+                        {timeSlots.length > 0 ? (
+                            <div className="grid grid-cols-4 gap-2">
+                                {timeSlots.map(time => (
+                                    <button
+                                        key={time}
+                                        onClick={() => setSelectedTime(time)}
+                                        className={`py-2 rounded-lg text-sm font-bold border transition-colors ${selectedTime === time ? 'bg-brand-600 text-white border-brand-600' : 'bg-white text-gray-600 border-gray-200'}`}
+                                    >
+                                        {time}
+                                    </button>
+                                ))}
+                            </div>
+                        ) : (
+                            selectedDate && <div className="text-sm text-center text-gray-400 py-4">Sem horários disponíveis.</div>
+                        )}
                      </div>
-                     
-                     <div className="space-y-6">
-                        <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-2">Seu Nome</label>
-                            <input 
-                                type="text" 
-                                className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-brand-500 focus:border-brand-500 outline-none"
-                                placeholder="Digite seu nome completo"
-                                value={clientName}
-                                onChange={(e) => setClientName(e.target.value)}
-                            />
-                        </div>
 
-                        <div className="grid grid-cols-2 gap-4">
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-2">Data</label>
-                                <input 
-                                    type="date" 
-                                    className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-brand-500 focus:border-brand-500 outline-none"
-                                    value={selectedDate}
-                                    onChange={(e) => setSelectedDate(e.target.value)}
-                                />
-                            </div>
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-2">Horário</label>
-                                <select 
-                                    className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-brand-500 focus:border-brand-500 outline-none bg-white"
-                                    value={selectedTime}
-                                    onChange={(e) => setSelectedTime(e.target.value)}
-                                >
-                                    <option value="">Selecione</option>
-                                    <option value="09:00">09:00</option>
-                                    <option value="10:00">10:00</option>
-                                    <option value="11:00">11:00</option>
-                                    <option value="14:00">14:00</option>
-                                    <option value="15:00">15:00</option>
-                                    <option value="16:00">16:00</option>
-                                </select>
-                            </div>
-                        </div>
+                     {selectedTime && (
+                         <div className="animate-in fade-in slide-in-from-bottom-4">
+                             <h2 className="text-xl font-bold text-gray-900 mb-2">Seus Dados</h2>
+                             <input 
+                                type="tel" 
+                                className="w-full border border-gray-200 rounded-xl px-4 py-3 bg-white outline-none mb-3"
+                                placeholder="Seu Telefone"
+                                value={clientPhone}
+                                onChange={(e) => { setClientPhone(e.target.value); setClientVerified(false); }}
+                                onBlur={handleVerifyPhone}
+                             />
+                             {clientVerified && (
+                                 <div className="space-y-3">
+                                     {isNewClient ? (
+                                        <>
+                                            <input type="text" className="w-full border border-gray-200 rounded-xl px-4 py-3 bg-white outline-none" placeholder="Seu Nome" value={clientName} onChange={(e) => setClientName(e.target.value)} />
+                                            <input type="date" className="w-full border border-gray-200 rounded-xl px-4 py-3 bg-white outline-none" value={clientBirthDate} onChange={(e) => setClientBirthDate(e.target.value)} />
+                                        </>
+                                     ) : (
+                                         <div className="text-sm text-green-600 bg-green-50 p-3 rounded-lg flex items-center gap-2">
+                                             <CheckCircle className="w-4 h-4" /> Olá, {clientName}!
+                                         </div>
+                                     )}
+                                     
+                                     <div className="bg-gray-50 p-4 rounded-xl mt-4">
+                                         <div className="flex justify-between text-sm mb-1">
+                                             <span className="text-gray-500">Serviço</span>
+                                             <span className="font-bold">{selectedService?.name}</span>
+                                         </div>
+                                         <div className="flex justify-between text-lg font-bold">
+                                             <span>Total</span>
+                                             <span className="text-brand-600">R$ {selectedService?.price.toFixed(2)}</span>
+                                         </div>
+                                     </div>
 
-                        <div className="bg-gray-50 p-4 rounded-lg mt-4">
-                            <div className="flex justify-between text-sm mb-2">
-                                <span className="text-gray-600">Serviço:</span>
-                                <span className="font-medium">{selectedService?.name}</span>
-                            </div>
-                            <div className="flex justify-between text-sm mb-2">
-                                <span className="text-gray-600">Profissional:</span>
-                                <span className="font-medium">{selectedProfessional?.name}</span>
-                            </div>
-                            <div className="flex justify-between text-lg font-bold border-t border-gray-200 pt-2 mt-2">
-                                <span>Total</span>
-                                <span>R$ {selectedService?.price.toFixed(2)}</span>
-                            </div>
-                        </div>
-
-                        <Button 
-                            className="w-full h-12 text-lg"
-                            disabled={!selectedDate || !selectedTime || !clientName}
-                            onClick={handleBooking}
-                        >
-                            Confirmar Agendamento
-                        </Button>
-                     </div>
+                                     <Button className="w-full py-4 text-lg font-bold shadow-xl shadow-brand-200" onClick={handleBooking}>
+                                         Confirmar Agendamento
+                                     </Button>
+                                 </div>
+                             )}
+                         </div>
+                     )}
                 </div>
             )}
 
             {step === 4 && (
-                <div className="p-8 text-center flex flex-col items-center justify-center min-h-[400px]">
-                    <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center text-green-600 mb-6 animate-bounce">
+                <div className="flex flex-col items-center justify-center py-10 text-center animate-in zoom-in-95">
+                    <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center text-green-600 mb-6">
                         <CheckCircle className="w-10 h-10" />
                     </div>
-                    <h2 className="text-3xl font-bold text-gray-900 mb-2">Agendado!</h2>
-                    <p className="text-gray-600 mb-8 max-w-sm">
-                        Seu horário para <b>{selectedService?.name}</b> com <b>{selectedProfessional?.name}</b> foi confirmado para o dia {selectedDate} às {selectedTime}.
+                    <h2 className="text-2xl font-bold text-gray-900 mb-2">Confirmado!</h2>
+                    <p className="text-gray-600 mb-8 max-w-xs mx-auto">
+                        Te esperamos dia {new Date(selectedDate).toLocaleDateString()} às {selectedTime}.
                     </p>
-                    <div className="flex gap-4">
-                        <Button variant="outline" onClick={() => {
-                            setStep(1);
-                            setSelectedService(null);
-                            setSelectedProfessional(null);
-                            setSelectedDate('');
-                            setSelectedTime('');
-                            setClientName('');
-                        }}>
-                            Agendar Outro
-                        </Button>
-                        <Button onClick={onBack}>Voltar ao Início</Button>
-                    </div>
+                    <Button variant="outline" onClick={() => {
+                        setStep(0); setSelectedService(null); setSelectedProfessional(null); setSelectedDate(''); setSelectedTime('');
+                    }}>
+                        Novo Agendamento
+                    </Button>
                 </div>
             )}
         </div>
-      </main>
-    </div>
+    </AppShell>
   );
 };

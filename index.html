@@ -1,8 +1,8 @@
 <!DOCTYPE html>
-<html lang="pt-BR">
+<html lang="pt-BR" class="h-full overflow-hidden">
   <head>
     <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=0, viewport-fit=cover" />
     <title>Salão Online - Gestão Inteligente</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
@@ -43,6 +43,29 @@
         }
       }
     </script>
+    <style>
+      /* Comportamento de App Nativo */
+      body {
+        height: 100%;
+        width: 100%;
+        overflow: hidden; /* O scroll acontece dentro dos containers, não no body */
+        overscroll-behavior: none; /* Previne o efeito elástico do Mac/iOS no body */
+        -webkit-tap-highlight-color: transparent;
+      }
+      #root {
+        height: 100%;
+        display: flex;
+        flex-direction: column;
+      }
+      /* Esconder scrollbar mas permitir scroll */
+      .no-scrollbar::-webkit-scrollbar {
+        display: none;
+      }
+      .no-scrollbar {
+        -ms-overflow-style: none;
+        scrollbar-width: none;
+      }
+    </style>
   <script type="importmap">
 {
   "imports": {
@@ -60,5 +83,6 @@
 </head>
   <body class="bg-gray-50 text-gray-900 antialiased">
     <div id="root"></div>
+    <script type="module" src="./index.tsx"></script>
   </body>
 </html>

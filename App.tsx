@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { StoreProvider } from './store';
 import { SuperAdmin } from './modules/SuperAdmin';
@@ -5,13 +6,17 @@ import { TenantAdmin } from './modules/TenantAdmin';
 import { PublicBooking } from './modules/PublicBooking';
 import { SaaSLandingPage } from './modules/SaaSLandingPage';
 import { SalonDirectory } from './modules/SalonDirectory';
+import { Login } from './modules/Login';
+import { ProfessionalPanel } from './modules/ProfessionalPanel';
 
 type ViewState = 
   | { type: 'landing' }
+  | { type: 'login'; context: 'admin' | 'tenant'; salonId?: string }
   | { type: 'directory' }
   | { type: 'super-admin' }
   | { type: 'tenant'; salonId: string }
-  | { type: 'public'; salonId: string };
+  | { type: 'professional'; salonId: string; professionalId: string }
+  | { type: 'public'; salonId: string; professionalId?: string }; // Updated with optional deep link param
 
 const AppContent: React.FC = () => {
   const [view, setView] = useState<ViewState>({ type: 'landing' });
@@ -20,21 +25,62 @@ const AppContent: React.FC = () => {
     setView({ type: newView, salonId });
   };
 
-  const goBack = () => setView({ type: 'super-admin' });
-  const goHome = () => setView({ type: 'landing' });
+  const goHome = () => {
+      setView({ type: 'landing' });
+  };
+  
+  const goLoginAdmin = () => {
+      setView({ type: 'login', context: 'admin' });
+  };
+
   const goDirectory = () => setView({ type: 'directory' });
+
+  // Special flow for Secret Admin Access from Public Page (Tenant Context)
+  const handleSecretTenantAccess = (salonId: string) => {
+      setView({ type: 'login', context: 'tenant', salonId });
+  };
 
   switch (view.type) {
     case 'landing':
-      return <SaaSLandingPage onEnterSystem={() => setView({ type: 'super-admin' })} onViewDirectory={goDirectory} />;
+      return <SaaSLandingPage onEnterSystem={goLoginAdmin} onViewDirectory={goDirectory} />;
+    case 'login':
+      return (
+        <Login 
+            context={view.context}
+            salonId={view.salonId}
+            onLogin={(id, isPro, proId) => {
+                if (view.context === 'tenant' && id) {
+                    if (isPro && proId) {
+                        setView({ type: 'professional', salonId: id, professionalId: proId });
+                    } else {
+                        navigate('tenant', id);
+                    }
+                } else {
+                    setView({ type: 'super-admin' });
+                }
+            }} 
+            onBack={goHome}
+        />
+      );
     case 'directory':
-      return <SalonDirectory onBack={goHome} onSelectSalon={(id) => navigate('public', id)} />;
+      return <SalonDirectory 
+          onBack={goHome} 
+          onSelectSalon={(id) => navigate('public', id)} 
+          onAdminAccess={handleSecretTenantAccess}
+      />;
     case 'super-admin':
       return <SuperAdmin onNavigate={navigate} onLogout={goHome} />;
     case 'tenant':
-      return <TenantAdmin salonId={view.salonId} onBack={goBack} />;
+      return <TenantAdmin salonId={view.salonId} onBack={goHome} />;
+    case 'professional':
+      return <ProfessionalPanel salonId={view.salonId} professionalId={view.professionalId} onLogout={goHome} />;
     case 'public':
-      return <PublicBooking salonId={view.salonId} onBack={() => setView({ type: 'directory' })} />;
+      return <PublicBooking 
+        salonId={view.salonId} 
+        professionalId={view.professionalId}
+        onBack={() => setView({ type: 'directory' })} 
+        onAdminAccess={handleSecretTenantAccess}
+      />;
     default:
       return <div>Error: Unknown view</div>;
   }
