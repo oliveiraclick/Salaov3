@@ -9,7 +9,9 @@ export const SaaSLandingPage: React.FC<{
   onEnterSystem: () => void;
   onViewDirectory: () => void;
   onHowItWorks: () => void;
-}> = ({ onEnterSystem, onViewDirectory, onHowItWorks }) => {
+  onViewTerms?: () => void;
+  onViewPrivacy?: () => void;
+}> = ({ onEnterSystem, onViewDirectory, onHowItWorks, onViewTerms, onViewPrivacy }) => {
   const { saasPlans, coupons, createSalon } = useStore();
   
   // Checkout State
@@ -75,7 +77,7 @@ export const SaaSLandingPage: React.FC<{
       <header className="relative overflow-hidden pt-12 pb-20 lg:pt-24 lg:pb-32">
         <div className="max-w-6xl mx-auto px-4 relative z-10 text-center flex flex-col items-center">
             
-            <Badge color="red" className="mb-6 px-4 py-1 text-sm bg-brand-50 text-brand-700 border border-brand-100">
+            <Badge color="red" className="mb-10 px-4 py-1 text-sm bg-brand-50 text-brand-700 border border-brand-100 shadow-sm">
                 Novo: Loja Online Integrada 🛍️
             </Badge>
 
@@ -517,8 +519,8 @@ export const SaaSLandingPage: React.FC<{
             <div>
                 <h4 className="text-white font-bold mb-4">Legal</h4>
                 <ul className="space-y-2 text-sm">
-                    <li><a href="#" className="hover:text-white">Termos de Uso</a></li>
-                    <li><a href="#" className="hover:text-white">Privacidade</a></li>
+                    <li><button onClick={onViewTerms} className="hover:text-white">Termos de Uso</button></li>
+                    <li><button onClick={onViewPrivacy} className="hover:text-white">Privacidade</button></li>
                     <li><a href="#" className="hover:text-white">Contato</a></li>
                 </ul>
             </div>
@@ -530,4 +532,3 @@ export const SaaSLandingPage: React.FC<{
     </div>
   );
 };
-    

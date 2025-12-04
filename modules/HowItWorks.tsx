@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { Button, Card, Badge } from '../components/UI';
+import { Button } from '../components/UI';
 import { 
   LayoutDashboard, Scissors, Calendar, User, 
   ShoppingBag, TrendingUp, ShieldCheck, QrCode, 
@@ -13,16 +13,16 @@ export const HowItWorks: React.FC<{ onBack: () => void }> = ({ onBack }) => {
     <div className="h-full overflow-y-auto bg-gray-50 font-sans pb-20">
       {/* Header Sticky */}
       <nav className="sticky top-0 z-40 bg-white/80 backdrop-blur-md border-b border-gray-100">
-        <div className="max-w-4xl mx-auto px-4 h-16 flex items-center justify-between">
+        <div className="max-w-4xl mx-auto px-4 h-16 flex items-center gap-4">
+          <Button variant="outline" onClick={onBack} className="text-xs flex items-center gap-1">
+            <ChevronLeft className="w-4 h-4" /> Voltar
+          </Button>
           <div className="flex items-center gap-2 cursor-pointer" onClick={onBack}>
             <div className="bg-brand-600 p-1.5 rounded-lg">
                <Scissors className="w-5 h-5 text-white" />
             </div>
-            <span className="font-bold text-lg text-gray-900 tracking-tight hidden sm:block">Salão Online</span>
+            <span className="font-bold text-lg text-gray-900 tracking-tight">Salão Online</span>
           </div>
-          <Button variant="outline" onClick={onBack} className="text-xs flex items-center gap-1">
-            <ChevronLeft className="w-4 h-4" /> Voltar
-          </Button>
         </div>
       </nav>
 

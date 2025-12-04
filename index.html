@@ -3,6 +3,19 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=0, viewport-fit=cover" />
+    
+    <!-- PWA & Mobile App Capabilities -->
+    <meta name="application-name" content="Salão Online" />
+    <meta name="apple-mobile-web-app-title" content="Salão Online" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="theme-color" content="#e11d48" />
+    
+    <!-- Icons (Simulated for MVP) -->
+    <link rel="apple-touch-icon" href="https://ui-avatars.com/api/?name=Sal%C3%A3o+Online&background=e11d48&color=fff&rounded=true&bold=true" />
+    <link rel="icon" type="image/png" href="https://ui-avatars.com/api/?name=SO&background=e11d48&color=fff&rounded=true&bold=true" />
+
     <title>Salão Online - Gestão Inteligente</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
@@ -51,6 +64,7 @@
         overflow: hidden; /* O scroll acontece dentro dos containers, não no body */
         overscroll-behavior: none; /* Previne o efeito elástico do Mac/iOS no body */
         -webkit-tap-highlight-color: transparent;
+        touch-action: manipulation;
       }
       #root {
         height: 100%;
@@ -64,6 +78,14 @@
       .no-scrollbar {
         -ms-overflow-style: none;
         scrollbar-width: none;
+      }
+      
+      /* Ajuste para Notch do iPhone */
+      .pb-safe-area {
+        padding-bottom: env(safe-area-inset-bottom, 20px);
+      }
+      .pt-safe-area {
+        padding-top: env(safe-area-inset-top, 20px);
       }
     </style>
   <script type="importmap">

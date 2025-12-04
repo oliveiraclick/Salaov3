@@ -9,6 +9,8 @@ import { SalonDirectory } from './modules/SalonDirectory';
 import { Login } from './modules/Login';
 import { ProfessionalPanel } from './modules/ProfessionalPanel';
 import { HowItWorks } from './modules/HowItWorks';
+import { TermsOfUse } from './modules/TermsOfUse';
+import { PrivacyPolicy } from './modules/PrivacyPolicy';
 
 type ViewState = 
   | { type: 'landing' }
@@ -18,7 +20,9 @@ type ViewState =
   | { type: 'tenant'; salonId: string }
   | { type: 'professional'; salonId: string; professionalId: string }
   | { type: 'public'; salonId: string; professionalId?: string }
-  | { type: 'how-it-works' };
+  | { type: 'how-it-works' }
+  | { type: 'terms' }
+  | { type: 'privacy' };
 
 const AppContent: React.FC = () => {
   const [view, setView] = useState<ViewState>({ type: 'landing' });
@@ -38,6 +42,8 @@ const AppContent: React.FC = () => {
   const goDirectory = () => setView({ type: 'directory' });
   
   const goHowItWorks = () => setView({ type: 'how-it-works' });
+  const goTerms = () => setView({ type: 'terms' });
+  const goPrivacy = () => setView({ type: 'privacy' });
 
   // Special flow for Secret Admin Access from Public Page (Tenant Context)
   const handleSecretTenantAccess = (salonId: string) => {
@@ -46,9 +52,21 @@ const AppContent: React.FC = () => {
 
   switch (view.type) {
     case 'landing':
-      return <SaaSLandingPage onEnterSystem={goLoginAdmin} onViewDirectory={goDirectory} onHowItWorks={goHowItWorks} />;
+      return (
+        <SaaSLandingPage 
+            onEnterSystem={goLoginAdmin} 
+            onViewDirectory={goDirectory} 
+            onHowItWorks={goHowItWorks} 
+            onViewTerms={goTerms}
+            onViewPrivacy={goPrivacy}
+        />
+      );
     case 'how-it-works':
       return <HowItWorks onBack={goHome} />;
+    case 'terms':
+      return <TermsOfUse onBack={goHome} />;
+    case 'privacy':
+      return <PrivacyPolicy onBack={goHome} />;
     case 'login':
       return (
         <Login 

@@ -2,7 +2,7 @@
 import React, { useState } from 'react';
 import { useStore } from '../store';
 import { Button, Card, Input } from '../components/UI';
-import { Scissors, Lock, LogIn, ShieldCheck, User } from 'lucide-react';
+import { Scissors, LogIn, ShieldCheck, ChevronLeft } from 'lucide-react';
 
 export const Login: React.FC<{ 
   context: 'admin' | 'tenant';
@@ -41,7 +41,15 @@ export const Login: React.FC<{
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col justify-center py-12 sm:px-6 lg:px-8">
+    <div className="min-h-screen bg-gray-50 flex flex-col justify-center py-12 sm:px-6 lg:px-8 relative">
+      {/* Botão Voltar Fixo na Esquerda */}
+      <button 
+        onClick={onBack} 
+        className="absolute top-6 left-6 p-2 text-gray-500 hover:text-brand-600 transition-colors bg-white rounded-full shadow-sm"
+      >
+          <ChevronLeft className="w-6 h-6" />
+      </button>
+
       <div className="sm:mx-auto sm:w-full sm:max-w-md">
         <div className="flex justify-center cursor-pointer" onClick={onBack}>
             <div className="bg-brand-600 p-2 rounded-xl shadow-lg shadow-brand-200">
@@ -58,10 +66,6 @@ export const Login: React.FC<{
                Área Restrita
             </h2>
         )}
-        
-        <p className="mt-2 text-center text-sm text-gray-600">
-          <button onClick={onBack} className="font-medium text-brand-600 hover:text-brand-500">Voltar para Início</button>
-        </p>
       </div>
 
       <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
