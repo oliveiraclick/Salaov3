@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { LucideIcon, Upload, X, QrCode, Globe, Instagram, Facebook, MessageCircle, Package, Target, Megaphone, AlertTriangle, Gift, ShoppingBag } from 'lucide-react';
+import { LucideIcon, Upload, X, QrCode, Globe, Instagram, Facebook, MessageCircle, Package, Target, Megaphone, AlertTriangle, Gift, ShoppingBag, Image, MapPin } from 'lucide-react';
 
 export const Button: React.FC<React.ButtonHTMLAttributes<HTMLButtonElement> & { variant?: 'primary' | 'secondary' | 'danger' | 'outline' }> = ({ className, variant = 'primary', ...props }) => {
   const baseStyle = "px-4 py-2 rounded-lg font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed";
@@ -170,4 +170,4 @@ export const MobileNavItem: React.FC<{
     <span className="text-[10px] font-medium leading-none">{label}</span>
   </button>
 );
-export { QrCode, Globe, Instagram, Facebook, MessageCircle, Package, Target, Megaphone, AlertTriangle, Gift, ShoppingBag };
+export { QrCode, Globe, Instagram, Facebook, MessageCircle, Package, Target, Megaphone, AlertTriangle, Gift, ShoppingBag, Image, MapPin };

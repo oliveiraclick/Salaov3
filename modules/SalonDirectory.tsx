@@ -1,7 +1,8 @@
+
 import React, { useState } from 'react';
 import { useStore } from '../store';
 import { Badge, AppShell, MobileNav, MobileNavItem } from '../components/UI';
-import { Search, MapPin, Star, ArrowRight, Home, User, Lock } from 'lucide-react';
+import { Search, MapPin, Star, ArrowRight, Home, User } from 'lucide-react';
 
 export const SalonDirectory: React.FC<{ 
   onSelectSalon: (salonId: string) => void;
@@ -94,17 +95,6 @@ export const SalonDirectory: React.FC<{
                          <div className="absolute bottom-2 left-2 bg-white/90 px-2 py-0.5 rounded text-[10px] font-bold text-gray-800 uppercase">
                             {salon.category || 'Salão'}
                         </div>
-                        
-                        {/* Botão Cadeado para Admin (Dono) */}
-                        <button 
-                            className="absolute top-2 right-2 bg-black/50 hover:bg-brand-600 backdrop-blur-sm p-2 rounded-full shadow-sm z-20 transition-colors border border-white/20"
-                            onClick={(e) => {
-                                e.stopPropagation();
-                                onAdminAccess(salon.id);
-                            }}
-                        >
-                            <Lock className="w-3.5 h-3.5 text-white" />
-                        </button>
                     </div>
                     <div className="p-4">
                         <div className="flex justify-between items-start mb-1">

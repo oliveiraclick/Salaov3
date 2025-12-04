@@ -8,7 +8,7 @@ import {
   LayoutDashboard, Calendar, Users, Scissors, DollarSign, Settings, 
   Sparkles, Lock, LogOut, Save, Plus, X, Check, Clock, CreditCard, Ticket,
   TrendingUp, TrendingDown, Wallet, Edit, Banknote, QrCode,
-  Target, Package, Megaphone, Gift, AlertTriangle, MessageCircle, ShoppingBag
+  Target, Package, Megaphone, Gift, AlertTriangle, MessageCircle, ShoppingBag, Trash2
 } from 'lucide-react';
 import { generateSalonDescription } from '../services/geminiService';
 
@@ -114,6 +114,18 @@ export const TenantAdmin: React.FC<{ salonId: string; onBack: () => void }> = ({
   
   const updateSocials = (key: string, value: string) => {
       updateSalon({ ...salon, socials: { ...salon.socials, [key]: value } });
+  };
+
+  const addGalleryImage = (base64: string) => {
+      updateSalon({ ...salon, gallery: [...(salon.gallery || []), base64] });
+      triggerSaveFeedback();
+  };
+
+  const removeGalleryImage = (index: number) => {
+      const newGallery = [...(salon.gallery || [])];
+      newGallery.splice(index, 1);
+      updateSalon({ ...salon, gallery: newGallery });
+      triggerSaveFeedback();
   };
 
   const handleSaveService = () => {
@@ -897,6 +909,30 @@ export const TenantAdmin: React.FC<{ salonId: string; onBack: () => void }> = ({
                          </button>
                      </div>
                  </div>
+            </Card>
+
+            <Card title="Galeria de Fotos">
+                <div className="space-y-4">
+                    <div className="grid grid-cols-3 gap-2">
+                        {salon.gallery?.map((img, idx) => (
+                            <div key={idx} className="relative aspect-square rounded-lg overflow-hidden group">
+                                <img src={img} className="w-full h-full object-cover" />
+                                <button 
+                                    className="absolute top-1 right-1 bg-red-500 text-white p-1 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
+                                    onClick={() => removeGalleryImage(idx)}
+                                >
+                                    <Trash2 className="w-3 h-3" />
+                                </button>
+                            </div>
+                        ))}
+                        <ImageUpload 
+                            className="aspect-square rounded-lg" 
+                            placeholder="+"
+                            onImageUpload={addGalleryImage} 
+                        />
+                    </div>
+                    <p className="text-xs text-gray-500">Adicione fotos dos seus melhores cortes ou do ambiente.</p>
+                </div>
             </Card>
 
              <Card title="Metas & Objetivos">

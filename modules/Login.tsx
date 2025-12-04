@@ -45,7 +45,7 @@ export const Login: React.FC<{
       {/* Botão Voltar Fixo na Esquerda */}
       <button 
         onClick={onBack} 
-        className="absolute top-6 left-6 p-2 text-gray-500 hover:text-brand-600 transition-colors bg-white rounded-full shadow-sm"
+        className="absolute top-6 left-6 p-2 text-gray-500 hover:text-brand-600 transition-colors bg-white rounded-full shadow-sm z-50"
       >
           <ChevronLeft className="w-6 h-6" />
       </button>
