@@ -1,8 +1,8 @@
 
 import React, { useState, useEffect } from 'react';
 import { useStore } from '../store';
-import { Button, AppShell, MobileNav, MobileNavItem, Badge, Modal } from '../components/UI';
-import { Calendar, Clock, MapPin, CheckCircle, User, ChevronLeft, Scissors, Lock, Home, Globe, Instagram, Facebook, MessageCircle, ShoppingBag, Plus, Minus, Trash2, Image } from 'lucide-react';
+import { Button, AppShell, MobileNav, MobileNavItem, Badge, Modal, Input } from '../components/UI';
+import { Calendar, Clock, MapPin, CheckCircle, User, ChevronLeft, Scissors, Lock, Home, Globe, Instagram, Facebook, MessageCircle, ShoppingBag, Plus, Minus, Trash2, Image, Search } from 'lucide-react';
 import { Service, Professional, Product } from '../types';
 
 export const PublicBooking: React.FC<{ 
@@ -32,6 +32,11 @@ export const PublicBooking: React.FC<{
   const [clientBirthDate, setClientBirthDate] = useState('');
   const [isNewClient, setIsNewClient] = useState(false);
   const [clientVerified, setClientVerified] = useState(false);
+
+  // My Appointments State
+  const [isMyApptsOpen, setIsMyApptsOpen] = useState(false);
+  const [lookupPhone, setLookupPhone] = useState('');
+  const [myFoundAppts, setMyFoundAppts] = useState<any[]>([]);
 
   // Handle Deep Link
   useEffect(() => {
@@ -85,6 +90,19 @@ export const PublicBooking: React.FC<{
 
   const timeSlots = generateTimeSlots();
 
+  // Helper for Date Mask (DD/MM/YYYY)
+  const handleBirthDateChange = (val: string) => {
+      let v = val.replace(/\D/g, '');
+      if (v.length > 8) v = v.slice(0, 8);
+      
+      if (v.length > 4) {
+          v = `${v.slice(0,2)}/${v.slice(2,4)}/${v.slice(4)}`;
+      } else if (v.length > 2) {
+          v = `${v.slice(0,2)}/${v.slice(2)}`;
+      }
+      setClientBirthDate(v);
+  };
+
   const handleVerifyPhone = () => {
     // Basic cleanup
     const cleanPhone = clientPhone.replace(/\D/g, '');
@@ -93,6 +111,9 @@ export const PublicBooking: React.FC<{
         const existingClient = getClientByPhone(cleanPhone);
         if (existingClient) {
             setClientName(existingClient.name);
+            // Format existing date to DD/MM/YYYY if stored as ISO
+            // Or just use as is if simple string. Assuming ISO YYYY-MM-DD for storage
+            // Displaying simplified for MVP
             setClientBirthDate(existingClient.birthDate);
             setIsNewClient(false);
             setClientVerified(true);
@@ -132,8 +153,20 @@ export const PublicBooking: React.FC<{
         price: selectedService.price,
         products: cart // Pass the cart items to the appointment
       });
+      
+      // Ensure we move to step 4
       setStep(4);
+      window.scrollTo(0,0);
     }
+  };
+
+  const handleLookupAppointments = () => {
+      if (!lookupPhone) return;
+      const found = salon.appointments
+        .filter(a => a.clientPhone === lookupPhone && a.status !== 'cancelled')
+        .sort((a,b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+      
+      setMyFoundAppts(found);
   };
 
   const handleServiceSelect = (svc: Service) => {
@@ -157,7 +190,7 @@ export const PublicBooking: React.FC<{
       <div className="flex items-center gap-3 px-4 py-3 bg-white border-b border-gray-100 shadow-sm z-30 relative">
           {/* Seta de Voltar: SÓ aparece se estiver no meio do agendamento (Step > 0). 
               Se for Step 0 (Capa do Salão), não tem botão, prendendo o usuário no Salão. */}
-          {step > 0 ? (
+          {step > 0 && step < 4 ? (
               <button onClick={() => setStep(step - 1 as any)} className="p-2 -ml-2 text-gray-600 rounded-full active:bg-gray-100">
                  <ChevronLeft className="w-6 h-6" />
               </button>
@@ -194,7 +227,7 @@ export const PublicBooking: React.FC<{
           
           <div className="flex-1 min-w-0">
                <h1 className="font-bold text-gray-900 truncate text-base leading-tight">{salon.name}</h1>
-               {selectedProfessional && (
+               {selectedProfessional && step > 0 && step < 4 && (
                    <div className="text-xs font-bold text-brand-600 flex items-center gap-1 animate-pulse">
                        Agendando com {selectedProfessional.name}
                    </div>
@@ -208,7 +241,6 @@ export const PublicBooking: React.FC<{
         header={Header}
         bottomNav={
             // Unified Navigation: Persists through Step 0 (Profile) and Step 1/2/3 (Booking)
-            // This maintains the "Mini-App" feel requested.
             <MobileNav>
                 <MobileNavItem 
                     icon={<Home />} 
@@ -261,12 +293,35 @@ export const PublicBooking: React.FC<{
                                 </div>
                             </div>
 
+                            <Button className="w-full py-3 text-lg font-bold shadow-brand-500/20 shadow-lg" onClick={() => setStep(1)}>
+                                Agendar Agora
+                            </Button>
+
                             {/* About Us Preview */}
                             <div className="bg-white p-4 rounded-xl border border-gray-100 shadow-sm">
                                 <h3 className="font-bold text-gray-900 mb-2">Bem-vindo</h3>
                                 <p className="text-sm text-gray-600 leading-relaxed line-clamp-3">
                                     {salon.aboutUs || "Bem-vindo ao nosso espaço! Oferecemos os melhores serviços para cuidar da sua beleza e bem-estar."}
                                 </p>
+                            </div>
+
+                            {/* My Appointments Lookup Button */}
+                            <div 
+                                onClick={() => setIsMyApptsOpen(true)}
+                                className="bg-blue-50 border border-blue-100 p-4 rounded-xl flex items-center justify-between cursor-pointer active:scale-[0.98] transition-transform"
+                            >
+                                <div className="flex items-center gap-3">
+                                    <div className="bg-blue-100 p-2 rounded-full">
+                                        <Search className="w-5 h-5 text-blue-600" />
+                                    </div>
+                                    <div>
+                                        <div className="font-bold text-blue-900 text-sm">Meus Agendamentos</div>
+                                        <div className="text-xs text-blue-600">Esqueceu o horário? Consulte aqui.</div>
+                                    </div>
+                                </div>
+                                <div className="bg-white p-1 rounded-full text-blue-500">
+                                    <ChevronLeft className="w-4 h-4 rotate-180" />
+                                </div>
                             </div>
 
                             {/* Socials */}
@@ -296,10 +351,6 @@ export const PublicBooking: React.FC<{
                                     </a>
                                 )}
                             </div>
-                            
-                             <Button className="w-full py-3 text-lg font-bold shadow-brand-500/20 shadow-lg" onClick={() => setStep(1)}>
-                                Agendar Agora
-                            </Button>
                         </div>
                     )}
 
@@ -432,12 +483,16 @@ export const PublicBooking: React.FC<{
                 <div className="animate-in slide-in-from-right-4 duration-300 space-y-6">
                      <div>
                         <h2 className="text-xl font-bold text-gray-900 mb-2">Data e Hora</h2>
-                        <input 
-                            type="date" 
-                            className="w-full border border-gray-200 rounded-xl px-4 py-3 bg-white font-medium text-gray-900 outline-none focus:border-brand-500 mb-4"
-                            value={selectedDate}
-                            onChange={(e) => { setSelectedDate(e.target.value); setSelectedTime(''); }}
-                        />
+                        {/* Fix: Optimized Date Input for Mobile */}
+                        <div className="relative mb-4">
+                            <input 
+                                type="date" 
+                                className="w-full border border-gray-200 rounded-xl px-4 py-3 bg-white font-medium text-gray-900 outline-none focus:border-brand-500 appearance-none min-h-[50px]"
+                                value={selectedDate}
+                                onChange={(e) => { setSelectedDate(e.target.value); setSelectedTime(''); }}
+                                style={{ WebkitAppearance: 'none' }}
+                            />
+                        </div>
                         
                         {timeSlots.length > 0 ? (
                             <div className="grid grid-cols-4 gap-2">
@@ -507,7 +562,7 @@ export const PublicBooking: React.FC<{
                              <input 
                                 type="tel" 
                                 className="w-full border border-gray-200 rounded-xl px-4 py-3 bg-white outline-none mb-3"
-                                placeholder="Seu Telefone"
+                                placeholder="Seu Telefone (DDD + Número)"
                                 value={clientPhone}
                                 onChange={(e) => { setClientPhone(e.target.value); setClientVerified(false); }}
                             />
@@ -515,8 +570,22 @@ export const PublicBooking: React.FC<{
                                  <div className="space-y-3">
                                      {isNewClient ? (
                                         <>
-                                            <input type="text" className="w-full border border-gray-200 rounded-xl px-4 py-3 bg-white outline-none" placeholder="Seu Nome" value={clientName} onChange={(e) => setClientName(e.target.value)} />
-                                            <input type="date" className="w-full border border-gray-200 rounded-xl px-4 py-3 bg-white outline-none" value={clientBirthDate} onChange={(e) => setClientBirthDate(e.target.value)} />
+                                            <input 
+                                                type="text" 
+                                                className="w-full border border-gray-200 rounded-xl px-4 py-3 bg-white outline-none" 
+                                                placeholder="Seu Nome Completo" 
+                                                value={clientName} 
+                                                onChange={(e) => setClientName(e.target.value)} 
+                                            />
+                                            {/* Fix: Text Input for Birth Date with Mask */}
+                                            <input 
+                                                type="tel" 
+                                                className="w-full border border-gray-200 rounded-xl px-4 py-3 bg-white outline-none" 
+                                                placeholder="Data de Nascimento (DD/MM/AAAA)"
+                                                value={clientBirthDate}
+                                                maxLength={10}
+                                                onChange={(e) => handleBirthDateChange(e.target.value)} 
+                                            />
                                         </>
                                      ) : (
                                          <div className="text-sm text-green-600 bg-green-50 p-3 rounded-lg flex items-center gap-2">
@@ -552,21 +621,60 @@ export const PublicBooking: React.FC<{
             )}
 
             {step === 4 && (
-                <div className="flex flex-col items-center justify-center py-10 text-center animate-in zoom-in-95">
-                    <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center text-green-600 mb-6">
-                        <CheckCircle className="w-10 h-10" />
+                <div className="fixed inset-0 bg-white z-[60] flex flex-col items-center justify-center p-4 text-center animate-in zoom-in-95">
+                    <div className="w-24 h-24 bg-green-100 rounded-full flex items-center justify-center text-green-600 mb-6 animate-bounce">
+                        <CheckCircle className="w-12 h-12" />
                     </div>
-                    <h2 className="text-2xl font-bold text-gray-900 mb-2">Confirmado!</h2>
-                    <p className="text-gray-600 mb-8 max-w-xs mx-auto">
-                        Te esperamos dia {new Date(selectedDate).toLocaleDateString()} às {selectedTime}.
+                    <h2 className="text-2xl font-bold text-gray-900 mb-2">Agendamento Confirmado!</h2>
+                    <p className="text-gray-600 mb-8 max-w-xs mx-auto text-lg">
+                        Te esperamos dia <span className="font-bold">{new Date(selectedDate + 'T00:00:00').toLocaleDateString()}</span> às <span className="font-bold">{selectedTime}</span>.
                     </p>
-                    <Button variant="outline" onClick={() => {
-                        setStep(0); setSelectedService(null); setSelectedProfessional(null); setSelectedDate(''); setSelectedTime(''); setCart([]); setClientView('home');
-                    }}>
-                        Novo Agendamento
-                    </Button>
+                    <div className="w-full max-w-xs space-y-3">
+                         <Button className="w-full py-3" onClick={() => {
+                            setStep(0); setSelectedService(null); setSelectedProfessional(null); setSelectedDate(''); setSelectedTime(''); setCart([]); setClientView('home');
+                        }}>
+                            Voltar ao Início
+                        </Button>
+                    </div>
                 </div>
             )}
+
+            {/* My Appointments Lookup Modal */}
+            <Modal isOpen={isMyApptsOpen} onClose={() => setIsMyApptsOpen(false)} title="Meus Agendamentos">
+                <div className="space-y-4">
+                    <p className="text-sm text-gray-600">Digite seu telefone para ver seus próximos horários neste salão.</p>
+                    <div className="flex gap-2">
+                        <Input 
+                            placeholder="Telefone (DDD+Número)" 
+                            value={lookupPhone}
+                            onChange={(e) => setLookupPhone(e.target.value)}
+                            className="mb-0"
+                        />
+                        <Button onClick={handleLookupAppointments}><Search className="w-4 h-4" /></Button>
+                    </div>
+
+                    <div className="space-y-3 max-h-[50vh] overflow-y-auto">
+                        {myFoundAppts.length > 0 ? (
+                            myFoundAppts.map(app => (
+                                <div key={app.id} className="bg-gray-50 p-3 rounded-xl border border-gray-200">
+                                    <div className="font-bold text-gray-900">
+                                        {new Date(app.date).toLocaleDateString()} às {new Date(app.date).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}
+                                    </div>
+                                    <div className="text-sm text-gray-600">
+                                        {salon.services.find(s => s.id === app.serviceId)?.name}
+                                    </div>
+                                    <div className="text-xs text-brand-600 font-medium mt-1">
+                                        Com {salon.professionals.find(p => p.id === app.professionalId)?.name}
+                                    </div>
+                                </div>
+                            ))
+                        ) : (
+                           lookupPhone && <div className="text-center text-sm text-gray-400 py-4">Nenhum agendamento futuro encontrado.</div>
+                        )}
+                    </div>
+                    <Button variant="outline" className="w-full" onClick={() => setIsMyApptsOpen(false)}>Fechar</Button>
+                </div>
+            </Modal>
         </div>
     </AppShell>
   );
