@@ -33,7 +33,8 @@ export interface Professional {
   id: string;
   name: string;
   avatarUrl: string;
-  commissionRate: number;
+  commissionRate: number; // Service Commission %
+  productCommissionRate: number; // Product Commission %
   password?: string; // Simple auth for MVP
   email?: string;
 }
@@ -42,7 +43,20 @@ export interface Client {
     id: string;
     name: string;
     phone: string;
-    birthDate: string;
+    birthDate: string; // YYYY-MM-DD
+}
+
+export interface Product {
+    id: string;
+    name: string;
+    quantity: number;
+    minQuantity: number;
+    unit: string; // un, ml, kg
+    costPrice?: number;
+    // E-commerce fields
+    isForSale?: boolean;
+    salePrice?: number;
+    image?: string;
 }
 
 export interface Appointment {
@@ -55,6 +69,7 @@ export interface Appointment {
   date: string; // ISO string
   status: 'scheduled' | 'completed' | 'cancelled';
   price: number;
+  products?: Product[]; // Items bought during booking
 }
 
 export interface Transaction {
@@ -89,6 +104,7 @@ export interface Salon {
   professionals: Professional[];
   appointments: Appointment[];
   transactions: Transaction[]; // New Financial Field
+  products: Product[]; // New Inventory Field
   address: string;
   // New settings fields
   coverImage?: string;
@@ -97,6 +113,7 @@ export interface Salon {
   openTime?: string;
   closeTime?: string;
   blockedPeriods?: BlockedPeriod[];
+  revenueGoal?: number; // New Financial Goal
   // Social & About
   aboutUs?: string;
   socials?: {
@@ -117,6 +134,7 @@ export interface StoreContextType {
   saasPlans: SaaSPlan[];
   coupons: Coupon[];
   clients: Client[];
+  saasRevenueGoal: number; // For SaaS Dashboard
   currentSalonId: string | null;
   setCurrentSalonId: (id: string | null) => void;
   updateSalon: (salon: Salon) => void;
@@ -127,6 +145,9 @@ export interface StoreContextType {
   getClientByPhone: (phone: string) => Client | undefined;
   // Financials
   addTransaction: (salonId: string, transaction: Transaction) => void;
+  // Inventory
+  addProduct: (salonId: string, product: Product) => void;
+  updateProduct: (salonId: string, productId: string, quantity: number) => void;
   // SaaS Admin Actions
   updateSaaSPlan: (plan: SaaSPlan) => void;
   createCoupon: (code: string, percent: number) => void;

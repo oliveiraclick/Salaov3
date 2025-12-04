@@ -1,14 +1,15 @@
+
 import React, { useState } from 'react';
 import { useStore } from '../store';
 import { Button, Card, Input, Badge, AppShell, MobileNav, MobileNavItem } from '../components/UI';
-import { LayoutDashboard, Users, Plus, LogOut, Tags, DollarSign, Pen, Ban, CheckCircle, TrendingUp } from 'lucide-react';
+import { LayoutDashboard, Users, Plus, LogOut, Tags, DollarSign, Pen, Ban, CheckCircle, TrendingUp, Target, PartyPopper } from 'lucide-react';
 import { Salon, SaaSPlan } from '../types';
 
 export const SuperAdmin: React.FC<{ 
   onNavigate: (view: 'tenant' | 'public', salonId: string) => void,
   onLogout: () => void 
 }> = ({ onNavigate, onLogout }) => {
-  const { salons, saasPlans, coupons, createSalon, updateSaaSPlan, createCoupon, toggleSalonStatus } = useStore();
+  const { salons, saasPlans, coupons, saasRevenueGoal, createSalon, updateSaaSPlan, createCoupon, toggleSalonStatus } = useStore();
   const [activeTab, setActiveTab] = useState<'dashboard' | 'clients' | 'plans' | 'coupons'>('dashboard');
   
   // Local states for forms
@@ -21,6 +22,16 @@ export const SuperAdmin: React.FC<{
   const totalSalons = salons.length;
   const activeSalons = salons.filter(s => s.subscriptionStatus === 'active').length;
   const lateSalons = salons.filter(s => s.subscriptionStatus === 'late').length;
+  
+  // Progress
+  const mrrProgress = Math.min((totalMRR / saasRevenueGoal) * 100, 100);
+
+  // New Salons (Simulated current month)
+  const newSalonsCount = salons.filter(s => {
+      // For MVP, just treating all as recent if mock
+      // In real, filter by createdAt
+      return true; 
+  }).length;
 
   const Header = (
       <div className="px-4 py-3 bg-gray-900 text-white flex justify-between items-center shadow-md">
@@ -38,18 +49,55 @@ export const SuperAdmin: React.FC<{
           case 'dashboard':
               return (
                   <div className="space-y-4">
-                      <div className="grid grid-cols-2 gap-4">
-                          <Card className="p-4 bg-gradient-to-br from-gray-900 to-gray-800 text-white border-0">
-                              <div className="flex items-center gap-2 text-gray-400 text-xs uppercase mb-1">
-                                  <DollarSign className="w-4 h-4" /> MRR (Mensal)
+                      {/* Strategic Goal Card */}
+                      <Card className="bg-gradient-to-r from-gray-900 to-gray-800 text-white border-0 relative overflow-visible">
+                          <div className="flex justify-between items-end mb-2 relative z-10">
+                              <div>
+                                  <div className="flex items-center gap-2 text-gray-400 text-xs uppercase font-bold mb-1">
+                                      <Target className="w-4 h-4 text-green-400" /> Meta MRR
+                                  </div>
+                                  <div className="text-3xl font-bold">R$ {totalMRR.toFixed(2)}</div>
                               </div>
-                              <div className="text-2xl font-bold">R$ {totalMRR.toFixed(2)}</div>
-                          </Card>
+                              <div className="text-right">
+                                  <div className="text-xs text-gray-400">Objetivo</div>
+                                  <div className="font-bold">R$ {saasRevenueGoal.toFixed(0)}</div>
+                              </div>
+                          </div>
+                          <div className="w-full bg-gray-700 h-3 rounded-full overflow-hidden relative z-10">
+                              <div 
+                                  className={`h-full rounded-full transition-all duration-1000 ${mrrProgress >= 100 ? 'bg-green-500' : 'bg-green-400'}`}
+                                  style={{ width: `${mrrProgress}%` }}
+                              ></div>
+                          </div>
+                          <div className="text-right text-[10px] text-gray-400 mt-1 relative z-10">
+                              {mrrProgress.toFixed(0)}% da meta
+                          </div>
+                      </Card>
+
+                      {/* Celebration Card */}
+                      <div className="bg-purple-50 border border-purple-100 p-4 rounded-xl flex items-center justify-between">
+                          <div className="flex items-center gap-3">
+                              <div className="bg-purple-100 p-2 rounded-full">
+                                  <PartyPopper className="w-5 h-5 text-purple-600" />
+                              </div>
+                              <div>
+                                  <h3 className="font-bold text-purple-900">Novos Clientes</h3>
+                                  <p className="text-xs text-purple-700">Este mês</p>
+                              </div>
+                          </div>
+                          <div className="text-2xl font-bold text-purple-600">+{newSalonsCount}</div>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-4">
                           <Card className="p-4 border-l-4 border-brand-500">
                               <div className="text-gray-500 text-xs uppercase mb-1">Total Salões</div>
                               <div className="text-2xl font-bold text-gray-900">{totalSalons}</div>
                               <div className="text-[10px] text-green-600 font-medium">{activeSalons} ativos</div>
                           </Card>
+                          <div className="bg-blue-50 p-4 rounded-xl border border-blue-100">
+                              <div className="text-blue-600 font-bold text-lg">{coupons.length}</div>
+                              <div className="text-xs text-blue-400">Cupons Ativos</div>
+                          </div>
                       </div>
 
                       <Card title="Saúde da Carteira">
@@ -74,17 +122,6 @@ export const SuperAdmin: React.FC<{
                              </div>
                           </div>
                       </Card>
-
-                      <div className="grid grid-cols-2 gap-4">
-                          <div className="bg-blue-50 p-4 rounded-xl border border-blue-100">
-                              <div className="text-blue-600 font-bold text-lg">{coupons.length}</div>
-                              <div className="text-xs text-blue-400">Cupons Ativos</div>
-                          </div>
-                          <div className="bg-purple-50 p-4 rounded-xl border border-purple-100">
-                              <div className="text-purple-600 font-bold text-lg">{saasPlans.length}</div>
-                              <div className="text-xs text-purple-400">Planos Ofertados</div>
-                          </div>
-                      </div>
                   </div>
               );
 

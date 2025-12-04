@@ -2,7 +2,7 @@
 import React, { useState } from 'react';
 import { useStore } from '../store';
 import { AppShell, MobileNav, MobileNavItem, Card, Badge, Button, Input } from '../components/UI';
-import { Calendar, User, DollarSign, LogOut, Clock, Ban } from 'lucide-react';
+import { Calendar, User, DollarSign, LogOut, Clock, Ban, ShoppingBag } from 'lucide-react';
 import { Professional, Appointment } from '../types';
 
 export const ProfessionalPanel: React.FC<{ 
@@ -21,11 +21,22 @@ export const ProfessionalPanel: React.FC<{
 
   const myAppointments = salon.appointments.filter(a => a.professionalId === professionalId);
   
-  // Calculate Commission
+  // Calculate Commission breakdown
   const currentMonth = new Date().getMonth();
   const completedAppts = myAppointments.filter(a => a.status === 'completed' && new Date(a.date).getMonth() === currentMonth);
-  const totalGenerated = completedAppts.reduce((acc, curr) => acc + curr.price, 0);
-  const myCommission = (totalGenerated * professional.commissionRate) / 100;
+  
+  let totalServiceRevenue = 0;
+  let totalProductRevenue = 0;
+
+  completedAppts.forEach(appt => {
+      const productTotal = appt.products ? appt.products.reduce((acc, p) => acc + (p.salePrice || 0), 0) : 0;
+      totalProductRevenue += productTotal;
+      totalServiceRevenue += (appt.price - productTotal);
+  });
+
+  const serviceCommission = totalServiceRevenue * (professional.commissionRate / 100);
+  const productCommission = totalProductRevenue * ((professional.productCommissionRate || 0) / 100);
+  const totalEarnings = serviceCommission + productCommission;
 
   const handleBlock = () => {
     if(blockDate) {
@@ -60,7 +71,14 @@ export const ProfessionalPanel: React.FC<{
                                   <div>
                                       <div className="font-bold text-gray-800">{new Date(app.date).toLocaleDateString()} às {new Date(app.date).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}</div>
                                       <div className="text-sm text-gray-600">{app.clientName}</div>
-                                      <div className="text-xs text-gray-400">{salon.services.find(s => s.id === app.serviceId)?.name}</div>
+                                      <div className="text-xs text-gray-400 flex items-center gap-1">
+                                        {salon.services.find(s => s.id === app.serviceId)?.name}
+                                        {app.products && app.products.length > 0 && (
+                                            <span className="bg-green-100 text-green-700 px-1 rounded flex items-center gap-0.5">
+                                                <ShoppingBag className="w-3 h-3" /> +{app.products.length}
+                                            </span>
+                                        )}
+                                      </div>
                                   </div>
                                   <Badge color={app.status === 'completed' ? 'green' : 'blue'}>
                                       {app.status === 'scheduled' ? 'Agendado' : 'Concluído'}
@@ -84,27 +102,49 @@ export const ProfessionalPanel: React.FC<{
               return (
                   <div className="space-y-4">
                        <Card className="bg-gradient-to-r from-green-500 to-emerald-600 text-white border-0">
-                           <div className="text-sm opacity-80 mb-1">Minha Comissão (Mês Atual)</div>
-                           <div className="text-3xl font-bold">R$ {myCommission.toFixed(2)}</div>
-                           <div className="mt-2 text-xs bg-white/20 inline-block px-2 py-1 rounded">
-                               {professional.commissionRate}% de R$ {totalGenerated.toFixed(2)}
-                           </div>
+                           <div className="text-sm opacity-80 mb-1">Total a Receber (Mês)</div>
+                           <div className="text-3xl font-bold">R$ {totalEarnings.toFixed(2)}</div>
                        </Card>
+
+                       <div className="grid grid-cols-2 gap-3">
+                           <div className="bg-white p-3 rounded-xl border border-gray-100 shadow-sm">
+                               <div className="text-xs text-gray-500 uppercase mb-1">Serviços</div>
+                               <div className="text-xl font-bold text-gray-800">R$ {serviceCommission.toFixed(2)}</div>
+                               <div className="text-[10px] text-green-600 font-medium">({professional.commissionRate}%)</div>
+                           </div>
+                           <div className="bg-white p-3 rounded-xl border border-gray-100 shadow-sm">
+                               <div className="text-xs text-gray-500 uppercase mb-1">Vendas</div>
+                               <div className="text-xl font-bold text-gray-800">R$ {productCommission.toFixed(2)}</div>
+                               <div className="text-[10px] text-green-600 font-medium">({professional.productCommissionRate || 0}%)</div>
+                           </div>
+                       </div>
                        
-                       <h3 className="font-bold text-gray-700 px-1">Histórico de Serviços</h3>
+                       <h3 className="font-bold text-gray-700 px-1 mt-2">Histórico Detalhado</h3>
                        <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-                           {completedAppts.map(app => (
+                           {completedAppts.map(app => {
+                               const prodTotal = app.products?.reduce((s, p) => s + (p.salePrice || 0), 0) || 0;
+                               const svcPrice = app.price - prodTotal;
+                               
+                               const earnSvc = svcPrice * (professional.commissionRate / 100);
+                               const earnProd = prodTotal * ((professional.productCommissionRate || 0) / 100);
+
+                               return (
                                <div key={app.id} className="p-3 border-b border-gray-100 flex justify-between items-center">
                                    <div>
                                        <div className="text-sm font-medium">{new Date(app.date).toLocaleDateString()}</div>
-                                       <div className="text-xs text-gray-500">{salon.services.find(s => s.id === app.serviceId)?.name}</div>
+                                       <div className="text-xs text-gray-500">
+                                            {salon.services.find(s => s.id === app.serviceId)?.name}
+                                       </div>
                                    </div>
                                    <div className="text-right">
-                                       <div className="text-xs text-gray-400">Venda: R$ {app.price}</div>
-                                       <div className="text-sm font-bold text-green-600">+ R$ {(app.price * professional.commissionRate / 100).toFixed(2)}</div>
+                                       <div className="text-xs text-gray-400">Total: R$ {app.price.toFixed(2)}</div>
+                                       <div className="text-sm font-bold text-green-600">
+                                           + R$ {(earnSvc + earnProd).toFixed(2)}
+                                       </div>
                                    </div>
                                </div>
-                           ))}
+                               )
+                           })}
                            {completedAppts.length === 0 && <div className="p-4 text-center text-gray-400 text-sm">Nenhum serviço concluído este mês.</div>}
                        </div>
                   </div>

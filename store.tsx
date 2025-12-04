@@ -1,6 +1,6 @@
 
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { Salon, StoreContextType, Appointment, PlanType, BlockedPeriod, Client, SaaSPlan, Coupon, Transaction } from './types';
+import { Salon, StoreContextType, Appointment, PlanType, BlockedPeriod, Client, SaaSPlan, Coupon, Transaction, Product } from './types';
 
 // Simple mock UUID generator
 const generateId = () => Math.random().toString(36).substr(2, 9);
@@ -46,16 +46,22 @@ const INITIAL_SALONS: Salon[] = [
       { id: 's2', name: 'Barba Completa', durationMinutes: 30, price: 40 },
     ],
     professionals: [
-      { id: 'p1', name: 'João Silva', avatarUrl: 'https://i.pravatar.cc/150?u=1', commissionRate: 50, password: '123' },
-      { id: 'p2', name: 'Pedro Santos', avatarUrl: 'https://i.pravatar.cc/150?u=2', commissionRate: 40, password: '123' },
+      { id: 'p1', name: 'João Silva', avatarUrl: 'https://i.pravatar.cc/150?u=1', commissionRate: 50, productCommissionRate: 10, password: '123' },
+      { id: 'p2', name: 'Pedro Santos', avatarUrl: 'https://i.pravatar.cc/150?u=2', commissionRate: 40, productCommissionRate: 15, password: '123' },
     ],
     appointments: [],
-    transactions: [], // Initial empty transactions
+    transactions: [], 
+    products: [
+        { id: 'prod1', name: 'Cera Modeladora', quantity: 15, minQuantity: 5, unit: 'un', isForSale: true, salePrice: 45, costPrice: 20, image: 'https://images.unsplash.com/photo-1620916566398-39f1143ab7be?auto=format&fit=crop&q=80&w=200' },
+        { id: 'prod2', name: 'Shampoo Premium', quantity: 2, minQuantity: 4, unit: 'frasco', isForSale: true, salePrice: 80, costPrice: 40, image: 'https://images.unsplash.com/photo-1631729371254-42c2892f0e6e?auto=format&fit=crop&q=80&w=200' },
+        { id: 'prod3', name: 'Toalhas Descartáveis', quantity: 100, minQuantity: 50, unit: 'un', isForSale: false, costPrice: 0.50 }
+    ],
     category: 'Barbearia',
     openTime: '09:00',
     closeTime: '20:00',
     slotInterval: 30,
     blockedPeriods: [],
+    revenueGoal: 15000,
     coverImage: 'https://images.unsplash.com/photo-1585747860715-2ba37e788b70?auto=format&fit=crop&q=80&w=1000',
     aboutUs: 'Fundada em 2015, a Barbearia Vintage traz o conceito das clássicas barbearias nova-iorquinas para o coração de São Paulo. Aqui você encontra cerveja gelada, boa conversa e um corte impecável.',
     socials: {
@@ -78,15 +84,17 @@ const INITIAL_SALONS: Salon[] = [
       { id: 's3', name: 'Manicure', durationMinutes: 60, price: 50 },
     ],
     professionals: [
-      { id: 'p3', name: 'Ana Costa', avatarUrl: 'https://i.pravatar.cc/150?u=3', commissionRate: 60, password: '123' },
+      { id: 'p3', name: 'Ana Costa', avatarUrl: 'https://i.pravatar.cc/150?u=3', commissionRate: 60, productCommissionRate: 10, password: '123' },
     ],
     appointments: [],
     transactions: [],
+    products: [],
     category: 'Salão',
     openTime: '10:00',
     closeTime: '19:00',
     slotInterval: 60,
     blockedPeriods: [],
+    revenueGoal: 5000,
     coverImage: 'https://images.unsplash.com/photo-1560066984-138dadb4c035?auto=format&fit=crop&q=80&w=1000',
     aboutUs: 'Especialistas em realçar a sua beleza natural. Ambiente climatizado e profissionais altamente qualificados.',
     socials: {
@@ -101,6 +109,13 @@ const INITIAL_SALONS: Salon[] = [
 const INITIAL_COUPONS: Coupon[] = [
     { id: 'c1', code: 'PROMO10', discountPercent: 10, active: true, uses: 5 },
     { id: 'c2', code: 'BEMVINDO', discountPercent: 20, active: true, uses: 12 }
+];
+
+// Mock Client Data to verify Birthday functionality
+const INITIAL_CLIENTS: Client[] = [
+    { id: 'c1', name: 'Carlos Cliente', phone: '11999990000', birthDate: new Date().toISOString().split('T')[0] }, // Birthday Today
+    { id: 'c2', name: 'Maria Souza', phone: '11999991111', birthDate: '1990-05-15' },
+    { id: 'c3', name: 'Pedro Cliente', phone: '11988887777', birthDate: '1985-01-01' }
 ];
 
 const StoreContext = createContext<StoreContextType | undefined>(undefined);
@@ -124,10 +139,12 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   const [clients, setClients] = useState<Client[]>(() => {
       const saved = localStorage.getItem('clients');
-      return saved ? JSON.parse(saved) : [];
+      return saved ? JSON.parse(saved) : INITIAL_CLIENTS;
   });
 
   const [currentSalonId, setCurrentSalonId] = useState<string | null>(null);
+  
+  const saasRevenueGoal = 5000; // Mock SaaS Goal
 
   // Persistence
   useEffect(() => localStorage.setItem('salons', JSON.stringify(salons)), [salons]);
@@ -142,12 +159,17 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const addAppointment = (salonId: string, appointment: Appointment) => {
     setSalons(prev => prev.map(s => {
       if (s.id === salonId) {
+        // Calculate Total Price (Service + Products)
+        let totalAmount = appointment.price;
+        if (appointment.products) {
+            totalAmount += appointment.products.reduce((acc, p) => acc + (p.salePrice || 0), 0);
+        }
+
         // Auto-create income transaction for completed appointments (simulated for scheduled too for MVP simplicity)
-        // In a real app, this would happen when status changes to completed
         const newTransaction: Transaction = {
             id: generateId(),
-            description: `Agendamento: ${appointment.clientName}`,
-            amount: appointment.price,
+            description: `Agendamento: ${appointment.clientName}${appointment.products?.length ? ' + Produtos' : ''}`,
+            amount: totalAmount,
             type: 'income',
             date: appointment.date.split('T')[0],
             category: 'Serviços',
@@ -155,10 +177,21 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
             isAutoGenerated: true
         };
         
+        // Decrement product stock if any products were bought
+        let updatedProducts = [...s.products];
+        if (appointment.products) {
+            appointment.products.forEach(boughtProd => {
+                updatedProducts = updatedProducts.map(p => 
+                    p.id === boughtProd.id ? { ...p, quantity: Math.max(0, p.quantity - 1) } : p
+                );
+            });
+        }
+
         return { 
             ...s, 
-            appointments: [...s.appointments, appointment],
-            // transactions: [...s.transactions, newTransaction] // Uncomment to auto-add to finance
+            products: updatedProducts,
+            appointments: [...s.appointments, { ...appointment, price: totalAmount }], // Store total price
+            transactions: [...s.transactions, newTransaction] // Auto-add to finance
         };
       }
       return s;
@@ -207,6 +240,27 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       }));
   };
 
+  const addProduct = (salonId: string, product: Product) => {
+      setSalons(prev => prev.map(s => {
+          if(s.id === salonId) {
+              return { ...s, products: [...s.products, product] };
+          }
+          return s;
+      }));
+  };
+
+  const updateProduct = (salonId: string, productId: string, quantity: number) => {
+       setSalons(prev => prev.map(s => {
+          if(s.id === salonId) {
+              return { 
+                  ...s, 
+                  products: s.products.map(p => p.id === productId ? { ...p, quantity } : p) 
+              };
+          }
+          return s;
+      }));
+  };
+
   const createSalon = (name: string, plan: PlanType, couponCode?: string) => {
     const selectedPlan = saasPlans.find(p => p.id === plan);
     let fee = selectedPlan?.price || 0;
@@ -233,6 +287,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       professionals: [],
       appointments: [],
       transactions: [],
+      products: [],
       category: 'Salão',
       openTime: '09:00',
       closeTime: '18:00',
@@ -241,7 +296,8 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       subscriptionStatus: 'active',
       monthlyFee: fee,
       appliedCoupon: couponCode,
-      nextBillingDate: new Date(Date.now() + 30 * 86400000).toISOString()
+      nextBillingDate: new Date(Date.now() + 30 * 86400000).toISOString(),
+      revenueGoal: 5000
     };
     setSalons(prev => [...prev, newSalon]);
   };
@@ -286,10 +342,11 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   return (
     <StoreContext.Provider value={{ 
-        salons, saasPlans, coupons, clients, currentSalonId, 
+        salons, saasPlans, coupons, clients, saasRevenueGoal, currentSalonId, 
         setCurrentSalonId, updateSalon, addAppointment, createSalon, 
         addBlockedPeriod, saveClient, getClientByPhone,
-        addTransaction, updateSaaSPlan, createCoupon, toggleSalonStatus
+        addTransaction, updateSaaSPlan, createCoupon, toggleSalonStatus,
+        addProduct, updateProduct
     }}>
       {children}
     </StoreContext.Provider>

@@ -1,20 +1,21 @@
 
 import React, { useState } from 'react';
 import { useStore } from '../store';
-import { Salon, Service, Professional, Transaction, TransactionType, PaymentMethod } from '../types';
+import { Salon, Service, Professional, Transaction, TransactionType, PaymentMethod, Product } from '../types';
 import { Button, Card, Input, Badge, ImageUpload, AppShell, MobileNav, MobileNavItem, Modal } from '../components/UI';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { 
   LayoutDashboard, Calendar, Users, Scissors, DollarSign, Settings, 
   Sparkles, Lock, LogOut, Save, Plus, X, Check, Clock, CreditCard, Ticket,
-  TrendingUp, TrendingDown, Wallet, Edit, Banknote, QrCode
+  TrendingUp, TrendingDown, Wallet, Edit, Banknote, QrCode,
+  Target, Package, Megaphone, Gift, AlertTriangle, MessageCircle, ShoppingBag
 } from 'lucide-react';
 import { generateSalonDescription } from '../services/geminiService';
 
 export const TenantAdmin: React.FC<{ salonId: string; onBack: () => void }> = ({ salonId, onBack }) => {
-  const { salons, updateSalon, addAppointment, addBlockedPeriod, addTransaction } = useStore();
+  const { salons, clients, updateSalon, addAppointment, addBlockedPeriod, addTransaction, addProduct, updateProduct } = useStore();
   const salon = salons.find(s => s.id === salonId);
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'agenda' | 'services' | 'team' | 'finance' | 'settings'>('dashboard');
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'agenda' | 'inventory' | 'team' | 'finance' | 'settings'>('dashboard');
   const [isGeneratingAi, setIsGeneratingAi] = useState(false);
   const [saveStatus, setSaveStatus] = useState<string>('');
 
@@ -23,11 +24,15 @@ export const TenantAdmin: React.FC<{ salonId: string; onBack: () => void }> = ({
   const [newService, setNewService] = useState({ name: '', duration: '30', price: '' });
 
   const [isAddingPro, setIsAddingPro] = useState(false);
-  const [editingProId, setEditingProId] = useState<string | null>(null); // New state for editing
-  const [newPro, setNewPro] = useState({ name: '', commission: '', avatar: '' });
+  const [editingProId, setEditingProId] = useState<string | null>(null); 
+  const [newPro, setNewPro] = useState({ name: '', commission: '', productCommission: '', avatar: '' });
 
   const [isAddingAppt, setIsAddingAppt] = useState(false);
   const [newAppt, setNewAppt] = useState({ clientName: '', serviceId: '', professionalId: '', date: '', time: '' });
+
+  // Inventory Form
+  const [isAddingProduct, setIsAddingProduct] = useState(false);
+  const [newProduct, setNewProduct] = useState({ name: '', quantity: '', minQuantity: '', unit: 'un', isForSale: false, salePrice: '', costPrice: '', image: '' });
 
   // Finance Form
   const [newTrans, setNewTrans] = useState<{
@@ -55,6 +60,37 @@ export const TenantAdmin: React.FC<{ salonId: string; onBack: () => void }> = ({
     name: s.name,
     count: salon.appointments.filter(a => a.serviceId === s.id).length
   })).sort((a, b) => b.count - a.count).slice(0, 5);
+
+  // --- Logic for Strategic Dashboard ---
+  const revenueGoal = salon.revenueGoal || 5000;
+  const progressPercent = Math.min((totalSales / revenueGoal) * 100, 100);
+
+  const today = new Date();
+  const birthdaysToday = clients.filter(c => {
+      // Very simple filter: checks if client is associated with this salon (via appointments) 
+      // AND matches day/month. In a real app, clients would be linked to salon.
+      const hasHistory = salon.appointments.some(a => a.clientPhone === c.phone);
+      if(!hasHistory) return false;
+
+      const birth = new Date(c.birthDate);
+      // Fix timezone issues by using getUTCDate if date string is YYYY-MM-DD
+      // For MVP, simplistic check:
+      const bDay = parseInt(c.birthDate.split('-')[2]);
+      const bMonth = parseInt(c.birthDate.split('-')[1]);
+      return bDay === today.getDate() && bMonth === (today.getMonth() + 1);
+  });
+
+  // "Lost" clients (no visit in 30 days)
+  const lostClients = clients.filter(c => {
+      const salonAppts = salon.appointments.filter(a => a.clientPhone === c.phone);
+      if(salonAppts.length === 0) return false;
+      
+      const lastAppt = salonAppts.sort((a,b) => new Date(b.date).getTime() - new Date(a.date).getTime())[0];
+      const diffTime = Math.abs(today.getTime() - new Date(lastAppt.date).getTime());
+      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)); 
+      return diffDays > 30;
+  }).slice(0, 3); // Take top 3
+  // -------------------------------------
 
   const triggerSaveFeedback = () => {
     setSaveStatus('Salvando...');
@@ -96,26 +132,26 @@ export const TenantAdmin: React.FC<{ salonId: string; onBack: () => void }> = ({
     if (!newPro.name) return;
     
     if (editingProId) {
-        // Update existing
         const updatedPros = salon.professionals.map(p => {
             if (p.id === editingProId) {
                 return {
                     ...p,
                     name: newPro.name,
                     avatarUrl: newPro.avatar || p.avatarUrl,
-                    commissionRate: parseFloat(newPro.commission) || 0
+                    commissionRate: parseFloat(newPro.commission) || 0,
+                    productCommissionRate: parseFloat(newPro.productCommission) || 0
                 };
             }
             return p;
         });
         updateSalon({ ...salon, professionals: updatedPros });
     } else {
-        // Create new
         const pro: Professional = {
             id: Math.random().toString(36).substr(2, 9),
             name: newPro.name,
             avatarUrl: newPro.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(newPro.name)}&background=random`,
             commissionRate: parseFloat(newPro.commission) || 0,
+            productCommissionRate: parseFloat(newPro.productCommission) || 0,
             password: '123'
         };
         updateSalon({ ...salon, professionals: [...salon.professionals, pro] });
@@ -123,7 +159,7 @@ export const TenantAdmin: React.FC<{ salonId: string; onBack: () => void }> = ({
 
     setIsAddingPro(false);
     setEditingProId(null);
-    setNewPro({ name: '', commission: '', avatar: '' });
+    setNewPro({ name: '', commission: '', productCommission: '', avatar: '' });
     triggerSaveFeedback();
   };
 
@@ -132,6 +168,7 @@ export const TenantAdmin: React.FC<{ salonId: string; onBack: () => void }> = ({
       setNewPro({
           name: pro.name,
           commission: pro.commissionRate.toString(),
+          productCommission: (pro.productCommissionRate || 0).toString(),
           avatar: pro.avatarUrl
       });
       setIsAddingPro(true);
@@ -159,6 +196,37 @@ export const TenantAdmin: React.FC<{ salonId: string; onBack: () => void }> = ({
     triggerSaveFeedback();
   };
 
+  const handleSaveProduct = () => {
+      if(!newProduct.name || !newProduct.quantity) return;
+      addProduct(salon.id, {
+          id: Math.random().toString(36).substr(2,9),
+          name: newProduct.name,
+          quantity: parseInt(newProduct.quantity),
+          minQuantity: parseInt(newProduct.minQuantity) || 5,
+          unit: newProduct.unit,
+          isForSale: newProduct.isForSale,
+          salePrice: newProduct.isForSale ? parseFloat(newProduct.salePrice) : undefined,
+          costPrice: newProduct.costPrice ? parseFloat(newProduct.costPrice) : undefined,
+          image: newProduct.image
+      });
+      setIsAddingProduct(false);
+      setNewProduct({ name: '', quantity: '', minQuantity: '', unit: 'un', isForSale: false, salePrice: '', costPrice: '', image: '' });
+      triggerSaveFeedback();
+  };
+
+  // Helper for profit calculation
+  const calculateProfit = () => {
+      const cost = parseFloat(newProduct.costPrice) || 0;
+      const sale = parseFloat(newProduct.salePrice) || 0;
+      if (sale > 0) {
+          const profit = sale - cost;
+          const margin = (profit / sale) * 100;
+          return { profit, margin };
+      }
+      return null;
+  };
+  const profitData = calculateProfit();
+
   const handleAddTransaction = () => {
       if(!newTrans.description || !newTrans.amount) return;
       
@@ -167,7 +235,7 @@ export const TenantAdmin: React.FC<{ salonId: string; onBack: () => void }> = ({
       const transaction: Transaction = {
           id: Math.random().toString(36).substr(2, 9),
           description: newTrans.description + (installments > 1 ? ` (1/${installments})` : ''),
-          amount: parseFloat(newTrans.amount) / (installments > 1 ? installments : 1), // Split amount if installments
+          amount: parseFloat(newTrans.amount) / (installments > 1 ? installments : 1), 
           type: newTrans.type,
           category: newTrans.category,
           date: newTrans.date,
@@ -181,7 +249,6 @@ export const TenantAdmin: React.FC<{ salonId: string; onBack: () => void }> = ({
       triggerSaveFeedback();
   };
 
-  // Helper to pre-fill payout
   const handlePayCommission = (proName: string, amount: number) => {
       setNewTrans({
           description: `Pagamento Comissão - ${proName}`,
@@ -213,15 +280,84 @@ export const TenantAdmin: React.FC<{ salonId: string; onBack: () => void }> = ({
       case 'dashboard':
         return (
           <div className="space-y-4">
-            {!isPro && (
-                <div className="bg-yellow-50 border-l-4 border-yellow-400 p-4 rounded-r-lg">
-                    <p className="text-sm text-yellow-700">
-                    <b>Plano Start</b><br/>
-                    Limites: {salon.appointments.length}/50 agendamentos.
-                    </p>
+            {/* --- Strategic Section --- */}
+            
+            {/* Financial Goal */}
+            <Card className="bg-gradient-to-r from-gray-900 to-gray-800 text-white border-0 overflow-visible relative">
+                <div className="flex justify-between items-end mb-2 relative z-10">
+                    <div>
+                        <div className="flex items-center gap-2 text-gray-400 text-xs uppercase font-bold mb-1">
+                            <Target className="w-4 h-4 text-brand-500" /> Meta Mensal
+                        </div>
+                        <div className="text-2xl font-bold">R$ {totalSales.toFixed(0)}</div>
+                    </div>
+                    <div className="text-right">
+                         <div className="text-xs text-gray-400">Objetivo</div>
+                         <div className="font-bold">R$ {revenueGoal.toFixed(0)}</div>
+                    </div>
+                </div>
+                {/* Progress Bar */}
+                <div className="w-full bg-gray-700 h-3 rounded-full overflow-hidden relative z-10">
+                    <div 
+                        className={`h-full rounded-full transition-all duration-1000 ${progressPercent >= 100 ? 'bg-green-500' : 'bg-brand-500'}`}
+                        style={{ width: `${progressPercent}%` }}
+                    ></div>
+                </div>
+                <div className="text-right text-[10px] text-gray-400 mt-1 relative z-10">
+                    {progressPercent.toFixed(0)}% alcançado
+                </div>
+            </Card>
+
+            {/* Birthdays */}
+            {birthdaysToday.length > 0 && (
+                <div className="bg-pink-50 border border-pink-100 rounded-xl p-4 animate-in slide-in-from-right">
+                    <div className="flex items-center gap-2 mb-3">
+                        <Gift className="w-5 h-5 text-pink-600" />
+                        <h3 className="font-bold text-pink-900">Aniversariantes Hoje</h3>
+                    </div>
+                    <div className="space-y-2">
+                        {birthdaysToday.map(client => (
+                            <div key={client.id} className="bg-white p-3 rounded-lg flex justify-between items-center shadow-sm">
+                                <span className="text-sm font-medium">{client.name}</span>
+                                <a 
+                                    href={`https://wa.me/${client.phone}?text=Parabéns ${client.name}! Hoje é seu dia no ${salon.name}. Venha comemorar com a gente!`}
+                                    target="_blank"
+                                    className="text-xs bg-green-500 text-white px-3 py-1.5 rounded-full font-bold hover:bg-green-600 flex items-center gap-1"
+                                >
+                                    <MessageCircle className="w-3 h-3" /> Parabéns
+                                </a>
+                            </div>
+                        ))}
+                    </div>
                 </div>
             )}
-            
+
+            {/* Basic CRM (Lost Clients) */}
+            {lostClients.length > 0 && (
+                <Card className="border-l-4 border-orange-400">
+                    <div className="flex items-center gap-2 mb-3">
+                        <Megaphone className="w-5 h-5 text-orange-500" />
+                        <h3 className="font-bold text-gray-800">Clientes para Resgatar</h3>
+                    </div>
+                    <p className="text-xs text-gray-500 mb-3">Clientes que não visitam há mais de 30 dias.</p>
+                    <div className="space-y-2">
+                         {lostClients.map(client => (
+                            <div key={client.id} className="flex justify-between items-center border-b border-gray-50 pb-2 last:border-0 last:pb-0">
+                                <span className="text-sm text-gray-700">{client.name}</span>
+                                <a 
+                                    href={`https://wa.me/${client.phone}?text=Olá ${client.name}! Faz tempo que não te vemos no ${salon.name}. Que tal agendar um horário?`}
+                                    target="_blank"
+                                    className="text-brand-600 hover:text-brand-800"
+                                >
+                                    <MessageCircle className="w-4 h-4" />
+                                </a>
+                            </div>
+                         ))}
+                    </div>
+                </Card>
+            )}
+
+            {/* Standard Stats */}
             <div className="grid grid-cols-2 gap-4">
                <Card className="p-4">
                   <div className="text-xs text-gray-500 uppercase">Agendamentos</div>
@@ -240,8 +376,9 @@ export const TenantAdmin: React.FC<{ salonId: string; onBack: () => void }> = ({
                  </Card>
                )}
             </div>
-
-            {isPro ? (
+            
+            {/* Charts */}
+            {isPro && (
                 <Card title="Top Serviços">
                     <div className="h-48 w-full">
                         <ResponsiveContainer width="100%" height="100%">
@@ -253,11 +390,121 @@ export const TenantAdmin: React.FC<{ salonId: string; onBack: () => void }> = ({
                         </ResponsiveContainer>
                     </div>
                 </Card>
-            ) : null}
+            )}
           </div>
         );
 
+      case 'inventory':
+          if (!isPro) return <div className="p-8 text-center text-gray-500 bg-white rounded-xl">Recurso disponível apenas no plano Profissional.</div>;
+          
+          return (
+              <div className="space-y-4">
+                  <div className="flex justify-between items-center">
+                      <h3 className="font-bold text-gray-700">Controle de Estoque</h3>
+                      <Button onClick={() => setIsAddingProduct(true)} className="flex items-center gap-1 text-xs">
+                          <Plus className="w-3 h-3" /> Novo
+                      </Button>
+                  </div>
+
+                  {/* Add Product Form */}
+                  {isAddingProduct && (
+                      <Card className="bg-blue-50 border-blue-100">
+                          <div className="space-y-3">
+                              <ImageUpload className="w-full h-32 rounded-lg" currentImage={newProduct.image} placeholder="Foto do Produto" onImageUpload={(b64) => setNewProduct({...newProduct, image: b64})} />
+                              <Input label="Nome do Produto" value={newProduct.name} onChange={e => setNewProduct({...newProduct, name: e.target.value})} className="bg-white" />
+                              <div className="grid grid-cols-3 gap-2">
+                                  <Input label="Qtd Atual" type="number" value={newProduct.quantity} onChange={e => setNewProduct({...newProduct, quantity: e.target.value})} className="bg-white" />
+                                  <Input label="Mínimo" type="number" value={newProduct.minQuantity} onChange={e => setNewProduct({...newProduct, minQuantity: e.target.value})} className="bg-white" />
+                                  <div className="mb-4">
+                                      <label className="block text-sm font-medium text-gray-700 mb-1">Unidade</label>
+                                      <select className="w-full px-3 py-2 border border-gray-300 rounded-md bg-white" value={newProduct.unit} onChange={e => setNewProduct({...newProduct, unit: e.target.value})}>
+                                          <option value="un">Un</option>
+                                          <option value="ml">ml</option>
+                                          <option value="kg">kg</option>
+                                          <option value="lt">Litro</option>
+                                      </select>
+                                  </div>
+                              </div>
+                              
+                              <Input label="Preço de Custo (R$)" type="number" value={newProduct.costPrice} onChange={e => setNewProduct({...newProduct, costPrice: e.target.value})} className="bg-white" />
+
+                              <div className="bg-white p-3 rounded-lg border border-blue-200">
+                                  <label className="flex items-center gap-2 mb-2 cursor-pointer">
+                                      <input type="checkbox" checked={newProduct.isForSale} onChange={e => setNewProduct({...newProduct, isForSale: e.target.checked})} />
+                                      <span className="text-sm font-bold text-gray-800">Disponível para Venda Online?</span>
+                                  </label>
+                                  {newProduct.isForSale && (
+                                      <>
+                                        <Input label="Preço de Venda (R$)" type="number" value={newProduct.salePrice} onChange={e => setNewProduct({...newProduct, salePrice: e.target.value})} className="mb-0" />
+                                        
+                                        {/* Lucro Automático */}
+                                        {profitData && (
+                                            <div className={`mt-2 p-2 rounded text-xs flex justify-between items-center ${profitData.profit > 0 ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-700'}`}>
+                                                <span className="font-bold">Lucro: R$ {profitData.profit.toFixed(2)}</span>
+                                                <span className="font-mono">Margem: {profitData.margin.toFixed(0)}%</span>
+                                            </div>
+                                        )}
+                                      </>
+                                  )}
+                              </div>
+
+                              <div className="flex gap-2">
+                                  <Button variant="outline" className="flex-1" onClick={() => setIsAddingProduct(false)}>Cancelar</Button>
+                                  <Button className="flex-1" onClick={handleSaveProduct}>Salvar</Button>
+                              </div>
+                          </div>
+                      </Card>
+                  )}
+
+                  <div className="space-y-2">
+                      {salon.products?.length === 0 && <p className="text-gray-400 text-sm text-center py-4">Nenhum produto cadastrado.</p>}
+                      {salon.products?.map(prod => (
+                          <div key={prod.id} className="bg-white p-4 rounded-xl border border-gray-100 shadow-sm flex justify-between items-center relative overflow-hidden">
+                              {prod.isForSale && (
+                                  <div className="absolute top-0 right-0 bg-green-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-bl-lg">
+                                      R$ {prod.salePrice?.toFixed(2)}
+                                  </div>
+                              )}
+                              <div className="flex items-center gap-3">
+                                  {prod.image ? (
+                                      <img src={prod.image} className="w-12 h-12 rounded-lg object-cover bg-gray-100" />
+                                  ) : (
+                                      <div className="w-12 h-12 rounded-lg bg-gray-100 flex items-center justify-center text-gray-400">
+                                          <Package className="w-6 h-6" />
+                                      </div>
+                                  )}
+                                  <div>
+                                      <div className="font-bold text-gray-800 flex items-center gap-2">
+                                          {prod.name}
+                                          {prod.isForSale && <ShoppingBag className="w-3 h-3 text-green-500" />}
+                                      </div>
+                                      <div className="text-xs text-gray-500 flex items-center gap-2">
+                                          <span>Min: {prod.minQuantity} {prod.unit}</span>
+                                          {prod.quantity <= prod.minQuantity && (
+                                              <span className="flex items-center gap-1 text-red-600 font-bold bg-red-50 px-1.5 rounded">
+                                                  <AlertTriangle className="w-3 h-3" /> Baixo
+                                              </span>
+                                          )}
+                                      </div>
+                                      {/* Custo oculto na lista para economizar espaço, mas visível se expandir ou editar - MVP mostra custo aqui */}
+                                      {prod.costPrice && (
+                                          <div className="text-[10px] text-gray-400 mt-0.5">Custo: R$ {prod.costPrice.toFixed(2)}</div>
+                                      )}
+                                  </div>
+                              </div>
+                              <div className="flex items-center gap-3">
+                                  <button onClick={() => updateProduct(salon.id, prod.id, Math.max(0, prod.quantity - 1))} className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center hover:bg-gray-200 text-gray-600">-</button>
+                                  <span className="font-mono font-bold w-8 text-center">{prod.quantity}</span>
+                                  <button onClick={() => updateProduct(salon.id, prod.id, prod.quantity + 1)} className="w-8 h-8 rounded-full bg-brand-50 flex items-center justify-center hover:bg-brand-100 text-brand-600">+</button>
+                              </div>
+                          </div>
+                      ))}
+                  </div>
+              </div>
+          );
+
       case 'finance':
+        // ... (Existing finance code remains, just adding to the tab switch above)
         if (!isPro) return <div className="p-4 text-center text-gray-500">Recurso disponível apenas no plano Profissional.</div>;
         
         const totalIncome = salon.transactions.filter(t => t.type === 'income').reduce((acc, t) => acc + t.amount, 0);
@@ -332,24 +579,44 @@ export const TenantAdmin: React.FC<{ salonId: string; onBack: () => void }> = ({
                                 a.status === 'completed' &&
                                 new Date(a.date).getMonth() === currentMonth
                             );
-                            const totalGenerated = proAppts.reduce((acc, curr) => acc + curr.price, 0);
-                            const commissionAmount = (totalGenerated * pro.commissionRate) / 100;
+                            
+                            let serviceRevenue = 0;
+                            let productRevenue = 0;
+
+                            proAppts.forEach(appt => {
+                                // Service Price (already stored in appt.price which includes products in store.tsx logic - need to separate?)
+                                // Wait, in store.tsx addAppointment, we sum everything into appt.price.
+                                // We need to separate Service Price from Product Price to apply different rates.
+                                // However, appt.price currently holds the TOTAL.
+                                // Let's look at the products array in the appointment.
+                                
+                                const productsTotal = appt.products ? appt.products.reduce((acc, p) => acc + (p.salePrice || 0), 0) : 0;
+                                const servicePrice = appt.price - productsTotal; // Deduce product total from grand total
+
+                                serviceRevenue += servicePrice;
+                                productRevenue += productsTotal;
+                            });
+
+                            const serviceCommission = serviceRevenue * (pro.commissionRate / 100);
+                            const productCommission = productRevenue * ((pro.productCommissionRate || 0) / 100);
+                            const totalCommission = serviceCommission + productCommission;
 
                             return (
                                 <div key={pro.id} className="bg-gray-50 p-3 rounded-lg flex justify-between items-center">
                                     <div>
                                         <div className="font-bold text-sm text-gray-900">{pro.name}</div>
-                                        <div className="text-xs text-gray-500">
-                                            {proAppts.length} serviços • Gerou R$ {totalGenerated.toFixed(2)}
+                                        <div className="text-[10px] text-gray-500 mt-1 space-y-0.5">
+                                            <div>Serviços: R$ {serviceRevenue.toFixed(2)} <span className="text-green-600">({pro.commissionRate}%)</span></div>
+                                            <div>Vendas: R$ {productRevenue.toFixed(2)} <span className="text-green-600">({pro.productCommissionRate || 0}%)</span></div>
                                         </div>
                                     </div>
                                     <div className="text-right flex flex-col items-end gap-1">
                                         <div className="font-bold text-brand-600 text-sm">
-                                            A Pagar: R$ {commissionAmount.toFixed(2)}
+                                            A Pagar: R$ {totalCommission.toFixed(2)}
                                         </div>
-                                        {commissionAmount > 0 && (
+                                        {totalCommission > 0 && (
                                             <button 
-                                                onClick={() => handlePayCommission(pro.name, commissionAmount)}
+                                                onClick={() => handlePayCommission(pro.name, totalCommission)}
                                                 className="text-[10px] bg-white border border-gray-300 px-2 py-1 rounded hover:bg-green-50 hover:border-green-300 hover:text-green-700 transition-colors"
                                             >
                                                 Registrar Pagamento
@@ -435,6 +702,16 @@ export const TenantAdmin: React.FC<{ salonId: string; onBack: () => void }> = ({
                             </Badge>
                         </div>
                         <div className="text-sm text-gray-600 font-medium">{serviceName} com {proName}</div>
+                        
+                        {app.products && app.products.length > 0 && (
+                            <div className="mt-2 pt-2 border-t border-gray-50 text-xs text-gray-500">
+                                <span className="font-bold block mb-1">Compras:</span>
+                                {app.products.map(p => (
+                                    <span key={p.id} className="bg-gray-100 px-2 py-0.5 rounded mr-1 inline-block mb-1">{p.name}</span>
+                                ))}
+                            </div>
+                        )}
+
                         <div className="text-xs text-gray-500 mt-1 flex items-center gap-1">
                             <Users className="w-3 h-3" /> {app.clientName}
                             <span className="mx-1">•</span>
@@ -489,9 +766,9 @@ export const TenantAdmin: React.FC<{ salonId: string; onBack: () => void }> = ({
                             </div>
                             <img src={pro.avatarUrl} alt={pro.name} className="w-16 h-16 rounded-full mx-auto mb-3 object-cover" />
                             <h3 className="font-bold text-gray-900 text-sm truncate">{pro.name}</h3>
-                            <div className="inline-flex items-center gap-1 bg-gray-100 px-2 py-1 rounded text-xs text-gray-600 mt-1">
-                                <DollarSign className="w-3 h-3" />
-                                {pro.commissionRate}%
+                            <div className="flex justify-center gap-1 mt-1 text-xs text-gray-500">
+                                <span className="bg-gray-100 px-1.5 py-0.5 rounded">S: {pro.commissionRate}%</span>
+                                <span className="bg-gray-100 px-1.5 py-0.5 rounded">P: {pro.productCommissionRate || 0}%</span>
                             </div>
                         </div>
                     ))}
@@ -499,7 +776,7 @@ export const TenantAdmin: React.FC<{ salonId: string; onBack: () => void }> = ({
                     <button 
                     onClick={() => {
                         setEditingProId(null);
-                        setNewPro({ name: '', commission: '', avatar: '' });
+                        setNewPro({ name: '', commission: '', productCommission: '', avatar: '' });
                         setIsAddingPro(true);
                     }}
                     className="border-2 border-dashed border-gray-300 rounded-xl flex flex-col items-center justify-center h-40 bg-gray-50 hover:bg-white"
@@ -516,7 +793,10 @@ export const TenantAdmin: React.FC<{ salonId: string; onBack: () => void }> = ({
                             <div className="space-y-3">
                                 <ImageUpload className="w-20 h-20 mx-auto rounded-full" currentImage={newPro.avatar} onImageUpload={(base64) => setNewPro({...newPro, avatar: base64})} />
                                 <Input placeholder="Nome" value={newPro.name} onChange={e => setNewPro({...newPro, name: e.target.value})} />
-                                <Input label="Comissão (%)" placeholder="Ex: 50" type="number" value={newPro.commission} onChange={e => setNewPro({...newPro, commission: e.target.value})} />
+                                <div className="grid grid-cols-2 gap-2">
+                                    <Input label="Comissão Serviços (%)" placeholder="Ex: 50" type="number" value={newPro.commission} onChange={e => setNewPro({...newPro, commission: e.target.value})} />
+                                    <Input label="Comissão Produtos (%)" placeholder="Ex: 10" type="number" value={newPro.productCommission} onChange={e => setNewPro({...newPro, productCommission: e.target.value})} />
+                                </div>
                                 <div className="flex gap-2 mt-4">
                                     <Button variant="outline" className="flex-1" onClick={() => { setIsAddingPro(false); setEditingProId(null); }}>Cancelar</Button>
                                     <Button className="flex-1" onClick={handleSavePro}>Salvar</Button>
@@ -623,6 +903,15 @@ export const TenantAdmin: React.FC<{ salonId: string; onBack: () => void }> = ({
                  </div>
             </Card>
 
+             <Card title="Metas & Objetivos">
+                <Input 
+                    label="Meta de Faturamento Mensal (R$)" 
+                    type="number" 
+                    value={salon.revenueGoal} 
+                    onChange={(e) => updateSettings('revenueGoal', parseFloat(e.target.value))} 
+                />
+            </Card>
+
             <Card title="Redes Sociais">
                 <div className="space-y-3">
                     <Input label="Instagram" placeholder="@usuario" value={salon.socials?.instagram || ''} onChange={(e) => updateSocials('instagram', e.target.value)} />
@@ -710,6 +999,7 @@ export const TenantAdmin: React.FC<{ salonId: string; onBack: () => void }> = ({
             <MobileNav>
                 <MobileNavItem icon={<LayoutDashboard />} label="Início" active={activeTab === 'dashboard'} onClick={() => setActiveTab('dashboard')} />
                 <MobileNavItem icon={<Calendar />} label="Agenda" active={activeTab === 'agenda'} onClick={() => setActiveTab('agenda')} />
+                <MobileNavItem icon={<Package />} label="Estoque" active={activeTab === 'inventory'} onClick={() => setActiveTab('inventory')} />
                 <MobileNavItem icon={<Wallet />} label="Financeiro" active={activeTab === 'finance'} onClick={() => setActiveTab('finance')} />
                 <MobileNavItem icon={<Users />} label="Equipe" active={activeTab === 'team'} onClick={() => setActiveTab('team')} />
                 <MobileNavItem icon={<Settings />} label="Config" active={activeTab === 'settings'} onClick={() => setActiveTab('settings')} />

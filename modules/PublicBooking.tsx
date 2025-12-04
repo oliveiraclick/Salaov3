@@ -1,9 +1,9 @@
 
 import React, { useState, useEffect } from 'react';
 import { useStore } from '../store';
-import { Button, AppShell, MobileNav, MobileNavItem } from '../components/UI';
-import { Calendar, Clock, MapPin, CheckCircle, User, ChevronLeft, Scissors, Lock, Home, Globe, Instagram, Facebook, MessageCircle } from 'lucide-react';
-import { Service, Professional } from '../types';
+import { Button, AppShell, MobileNav, MobileNavItem, Badge, Modal } from '../components/UI';
+import { Calendar, Clock, MapPin, CheckCircle, User, ChevronLeft, Scissors, Lock, Home, Globe, Instagram, Facebook, MessageCircle, ShoppingBag, Plus, Minus, Trash2 } from 'lucide-react';
+import { Service, Professional, Product } from '../types';
 
 export const PublicBooking: React.FC<{ 
   salonId: string; 
@@ -20,6 +20,10 @@ export const PublicBooking: React.FC<{
   const [selectedProfessional, setSelectedProfessional] = useState<Professional | null>(null);
   const [selectedDate, setSelectedDate] = useState<string>('');
   const [selectedTime, setSelectedTime] = useState<string>('');
+  
+  // E-commerce State
+  const [isStoreOpen, setIsStoreOpen] = useState(false);
+  const [cart, setCart] = useState<Product[]>([]);
   
   // Client Identification State
   const [clientPhone, setClientPhone] = useState('');
@@ -40,6 +44,21 @@ export const PublicBooking: React.FC<{
   }, [professionalId, salon]);
 
   if (!salon) return <div>Salão não encontrado</div>;
+
+  const productsForSale = salon.products?.filter(p => p.isForSale && p.quantity > 0) || [];
+
+  const addToCart = (product: Product) => {
+      setCart([...cart, product]);
+  };
+
+  const removeFromCart = (index: number) => {
+      const newCart = [...cart];
+      newCart.splice(index, 1);
+      setCart(newCart);
+  };
+
+  const cartTotal = cart.reduce((acc, p) => acc + (p.salePrice || 0), 0);
+  const finalTotal = (selectedService?.price || 0) + cartTotal;
 
   const generateTimeSlots = () => {
       if (!selectedDate || !salon.openTime || !salon.closeTime) return [];
@@ -100,7 +119,8 @@ export const PublicBooking: React.FC<{
         clientPhone: clientPhone,
         date: finalDate,
         status: 'scheduled',
-        price: selectedService.price
+        price: selectedService.price,
+        products: cart // Pass the cart items to the appointment
       });
       setStep(4);
     }
@@ -113,6 +133,13 @@ export const PublicBooking: React.FC<{
           setStep(3);
       } else {
           setStep(2);
+      }
+  };
+
+  const handleTimeSelect = (time: string) => {
+      setSelectedTime(time);
+      if (productsForSale.length > 0) {
+          setIsStoreOpen(true);
       }
   };
 
@@ -327,7 +354,7 @@ export const PublicBooking: React.FC<{
                                 {timeSlots.map(time => (
                                     <button
                                         key={time}
-                                        onClick={() => setSelectedTime(time)}
+                                        onClick={() => handleTimeSelect(time)}
                                         className={`py-2 rounded-lg text-sm font-bold border transition-colors ${selectedTime === time ? 'bg-brand-600 text-white border-brand-600' : 'bg-white text-gray-600 border-gray-200'}`}
                                     >
                                         {time}
@@ -338,6 +365,51 @@ export const PublicBooking: React.FC<{
                             selectedDate && <div className="text-sm text-center text-gray-400 py-4">Sem horários disponíveis.</div>
                         )}
                      </div>
+
+                     {/* Store Modal */}
+                     <Modal isOpen={isStoreOpen} onClose={() => setIsStoreOpen(false)} title="Lojinha do Salão">
+                         <div className="space-y-4">
+                             <div className="bg-brand-50 p-3 rounded-lg text-sm text-brand-800">
+                                 Aproveite e leve produtos profissionais para casa!
+                             </div>
+                             
+                             <div className="space-y-3">
+                                 {productsForSale.map(prod => (
+                                     <div key={prod.id} className="flex justify-between items-center bg-white p-3 rounded-xl border border-gray-100 shadow-sm">
+                                         <div className="flex items-center gap-3">
+                                             <img src={prod.image || 'https://via.placeholder.com/100'} className="w-12 h-12 rounded-lg object-cover bg-gray-100" />
+                                             <div>
+                                                 <div className="font-bold text-sm text-gray-900">{prod.name}</div>
+                                                 <div className="text-xs text-brand-600 font-bold">R$ {prod.salePrice?.toFixed(2)}</div>
+                                             </div>
+                                         </div>
+                                         <Button onClick={() => addToCart(prod)} className="px-3 py-1 text-xs">Adicionar</Button>
+                                     </div>
+                                 ))}
+                             </div>
+
+                             {cart.length > 0 && (
+                                 <div className="border-t border-gray-100 pt-4 mt-4">
+                                     <h4 className="font-bold text-sm mb-2">Seu Carrinho</h4>
+                                     {cart.map((item, idx) => (
+                                         <div key={idx} className="flex justify-between items-center text-sm py-1">
+                                             <span>{item.name}</span>
+                                             <div className="flex items-center gap-2">
+                                                 <span>R$ {item.salePrice?.toFixed(2)}</span>
+                                                 <button onClick={() => removeFromCart(idx)} className="text-red-500"><Trash2 className="w-3 h-3" /></button>
+                                             </div>
+                                         </div>
+                                     ))}
+                                     <div className="flex justify-between font-bold mt-2 pt-2 border-t border-dashed border-gray-200">
+                                         <span>Total Produtos</span>
+                                         <span>R$ {cartTotal.toFixed(2)}</span>
+                                     </div>
+                                 </div>
+                             )}
+
+                             <Button className="w-full" onClick={() => setIsStoreOpen(false)}>Concluir Seleção</Button>
+                         </div>
+                     </Modal>
 
                      {selectedTime && (
                          <div className="animate-in fade-in slide-in-from-bottom-4">
@@ -363,14 +435,20 @@ export const PublicBooking: React.FC<{
                                          </div>
                                      )}
                                      
-                                     <div className="bg-gray-50 p-4 rounded-xl mt-4">
-                                         <div className="flex justify-between text-sm mb-1">
+                                     <div className="bg-gray-50 p-4 rounded-xl mt-4 space-y-2">
+                                         <div className="flex justify-between text-sm">
                                              <span className="text-gray-500">Serviço</span>
-                                             <span className="font-bold">{selectedService?.name}</span>
+                                             <span className="font-bold">R$ {selectedService?.price.toFixed(2)}</span>
                                          </div>
-                                         <div className="flex justify-between text-lg font-bold">
+                                         {cart.length > 0 && (
+                                             <div className="flex justify-between text-sm text-gray-600">
+                                                 <span className="flex items-center gap-1"><ShoppingBag className="w-3 h-3" /> Produtos ({cart.length})</span>
+                                                 <span>R$ {cartTotal.toFixed(2)}</span>
+                                             </div>
+                                         )}
+                                         <div className="flex justify-between text-lg font-bold border-t border-gray-200 pt-2 mt-2">
                                              <span>Total</span>
-                                             <span className="text-brand-600">R$ {selectedService?.price.toFixed(2)}</span>
+                                             <span className="text-brand-600">R$ {finalTotal.toFixed(2)}</span>
                                          </div>
                                      </div>
 
@@ -394,7 +472,7 @@ export const PublicBooking: React.FC<{
                         Te esperamos dia {new Date(selectedDate).toLocaleDateString()} às {selectedTime}.
                     </p>
                     <Button variant="outline" onClick={() => {
-                        setStep(0); setSelectedService(null); setSelectedProfessional(null); setSelectedDate(''); setSelectedTime('');
+                        setStep(0); setSelectedService(null); setSelectedProfessional(null); setSelectedDate(''); setSelectedTime(''); setCart([]);
                     }}>
                         Novo Agendamento
                     </Button>
