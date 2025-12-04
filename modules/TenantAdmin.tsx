@@ -51,7 +51,9 @@ export const TenantAdmin: React.FC<{ salonId: string; onBack: () => void }> = ({
 
   if (!salon) return <div>Salão não encontrado</div>;
 
-  const isPro = salon.plan === 'professional' || salon.plan === 'redes';
+  // UNLOCK ALL FEATURES FOR EVERYONE
+  const isPro = true; 
+  
   const totalSales = salon.appointments
     .filter(a => a.status === 'completed')
     .reduce((acc, curr) => acc + curr.price, 0);
@@ -584,14 +586,8 @@ export const TenantAdmin: React.FC<{ salonId: string; onBack: () => void }> = ({
                             let productRevenue = 0;
 
                             proAppts.forEach(appt => {
-                                // Service Price (already stored in appt.price which includes products in store.tsx logic - need to separate?)
-                                // Wait, in store.tsx addAppointment, we sum everything into appt.price.
-                                // We need to separate Service Price from Product Price to apply different rates.
-                                // However, appt.price currently holds the TOTAL.
-                                // Let's look at the products array in the appointment.
-                                
                                 const productsTotal = appt.products ? appt.products.reduce((acc, p) => acc + (p.salePrice || 0), 0) : 0;
-                                const servicePrice = appt.price - productsTotal; // Deduce product total from grand total
+                                const servicePrice = appt.price - productsTotal; 
 
                                 serviceRevenue += servicePrice;
                                 productRevenue += productsTotal;

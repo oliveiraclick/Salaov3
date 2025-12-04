@@ -2,13 +2,14 @@
 import React, { useState } from 'react';
 import { useStore } from '../store';
 import { Button, Card, Badge, Modal, Input } from '../components/UI';
-import { Check, Scissors, Calendar, BarChart3, Globe, Star, PieChart, Ticket } from 'lucide-react';
+import { Check, Scissors, Calendar, BarChart3, Globe, Star, PieChart, Ticket, ShoppingBag, Smartphone, User, Target, TrendingUp, Zap, ArrowRight, ShieldCheck, CreditCard } from 'lucide-react';
 import { SaaSPlan } from '../types';
 
 export const SaaSLandingPage: React.FC<{ 
   onEnterSystem: () => void;
   onViewDirectory: () => void;
-}> = ({ onEnterSystem, onViewDirectory }) => {
+  onHowItWorks: () => void;
+}> = ({ onEnterSystem, onViewDirectory, onHowItWorks }) => {
   const { saasPlans, coupons, createSalon } = useStore();
   
   // Checkout State
@@ -52,7 +53,7 @@ export const SaaSLandingPage: React.FC<{
   const finalPrice = selectedPlan ? selectedPlan.price * (1 - discount / 100) : 0;
 
   return (
-    <div className="h-full overflow-y-auto bg-white font-sans">
+    <div className="h-full overflow-y-auto bg-white font-sans scroll-smooth">
       {/* Navbar */}
       <nav className="border-b border-gray-100 bg-white/80 backdrop-blur-md sticky top-0 z-40">
         <div className="max-w-6xl mx-auto px-4 h-16 flex justify-between items-center">
@@ -63,9 +64,9 @@ export const SaaSLandingPage: React.FC<{
             <span className="font-bold text-xl text-brand-600 tracking-tight">Salão Online</span>
           </div>
           <div className="hidden md:flex gap-8 text-sm font-medium text-gray-600">
+            <button onClick={onHowItWorks} className="hover:text-brand-600 transition-colors">Como Funciona</button>
             <a href="#funcionalidades" className="hover:text-brand-600 transition-colors">Funcionalidades</a>
             <a href="#planos" className="hover:text-brand-600 transition-colors">Planos</a>
-            <a href="#sobre" className="hover:text-brand-600 transition-colors">Sobre</a>
           </div>
         </div>
       </nav>
@@ -74,13 +75,16 @@ export const SaaSLandingPage: React.FC<{
       <header className="relative overflow-hidden pt-12 pb-20 lg:pt-24 lg:pb-32">
         <div className="max-w-6xl mx-auto px-4 relative z-10 text-center flex flex-col items-center">
             
+            <Badge color="red" className="mb-6 px-4 py-1 text-sm bg-brand-50 text-brand-700 border border-brand-100">
+                Novo: Loja Online Integrada 🛍️
+            </Badge>
+
             <h1 className="text-5xl md:text-7xl font-extrabold text-gray-900 tracking-tight mb-8">
               Gestão inteligente para <br/> 
               <span className="text-transparent bg-clip-text bg-gradient-to-r from-brand-600 to-rose-400">seu salão de beleza</span>
             </h1>
             <p className="text-xl text-gray-600 max-w-2xl mx-auto mb-10 leading-relaxed">
-              Agendamento online, controle financeiro e site exclusivo em uma única plataforma. 
-              Simplifique sua rotina e fature mais.
+              Transforme seu agendamento em uma máquina de vendas. Controle financeiro real, aplicativo nativo para a equipe e fidelização automática de clientes.
             </p>
             
             <div className="flex flex-col items-center gap-6 w-full">
@@ -91,7 +95,7 @@ export const SaaSLandingPage: React.FC<{
                 Eu Quero
               </Button>
 
-              {/* Social Proof (Moved below button) */}
+              {/* Social Proof */}
               <div 
                 onClick={onViewDirectory}
                 className="group cursor-pointer flex items-center gap-4 bg-white/60 border border-gray-200 p-2 pr-6 rounded-full shadow-sm backdrop-blur-sm animate-in fade-in slide-in-from-bottom-4 hover:border-brand-200 hover:shadow-md transition-all mt-2"
@@ -134,60 +138,251 @@ export const SaaSLandingPage: React.FC<{
             </div>
         </div>
         
-        {/* Abstract Background Elements */}
+        {/* Background Blobs */}
         <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full h-full overflow-hidden -z-10 pointer-events-none">
            <div className="absolute top-0 left-1/4 w-[500px] h-[500px] bg-rose-200 rounded-full mix-blend-multiply filter blur-3xl opacity-30 animate-blob"></div>
            <div className="absolute top-0 right-1/4 w-[500px] h-[500px] bg-brand-200 rounded-full mix-blend-multiply filter blur-3xl opacity-30 animate-blob animation-delay-2000"></div>
         </div>
       </header>
 
-      {/* Features Grid */}
-      <section id="funcionalidades" className="py-20 bg-gray-50">
-        <div className="max-w-6xl mx-auto px-4">
-            <div className="text-center mb-16">
-              <h2 className="text-3xl font-bold text-gray-900 mb-4">Tudo que você precisa</h2>
-              <p className="text-gray-500 max-w-xl mx-auto">Ferramentas essenciais para profissionalizar seu negócio, do agendamento ao pós-venda.</p>
+      {/* Feature Blocks (Z-Pattern) */}
+      <section id="funcionalidades" className="py-20 bg-gray-50 space-y-24">
+        
+        {/* Block 1: Sales / E-commerce */}
+        <div className="max-w-6xl mx-auto px-4 grid md:grid-cols-2 gap-12 items-center">
+            <div className="order-2 md:order-1 relative">
+                <div className="absolute inset-0 bg-gradient-to-tr from-brand-200 to-transparent rounded-full filter blur-2xl opacity-50"></div>
+                <Card className="relative p-6 transform rotate-2 hover:rotate-0 transition-transform duration-500 border-t-4 border-t-brand-500 shadow-xl">
+                    <div className="flex justify-between items-center mb-4 border-b border-gray-100 pb-2">
+                        <span className="font-bold text-gray-800">Seu Carrinho</span>
+                        <ShoppingBag className="w-5 h-5 text-brand-500" />
+                    </div>
+                    <div className="space-y-3">
+                        <div className="flex justify-between items-center text-sm">
+                            <span className="text-gray-600">Corte de Cabelo</span>
+                            <span className="font-bold">R$ 60,00</span>
+                        </div>
+                        <div className="flex justify-between items-center text-sm bg-green-50 p-2 rounded-lg border border-green-100">
+                            <div className="flex items-center gap-2">
+                                <img src="https://images.unsplash.com/photo-1620916566398-39f1143ab7be?w=50" className="w-8 h-8 rounded object-cover" />
+                                <div>
+                                    <div className="font-bold text-gray-800">Pomada Modeladora</div>
+                                    <div className="text-[10px] text-green-600 font-bold">Adicionado Agora!</div>
+                                </div>
+                            </div>
+                            <span className="font-bold text-green-700">+ R$ 45,00</span>
+                        </div>
+                        <div className="flex justify-between items-center font-bold text-lg pt-2 border-t border-dashed border-gray-200">
+                            <span>Total</span>
+                            <span className="text-brand-600">R$ 105,00</span>
+                        </div>
+                        <Button className="w-full text-sm">Finalizar Agendamento</Button>
+                    </div>
+                </Card>
             </div>
-
-            <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
-               <Card className="hover:border-brand-500 transition-colors cursor-default group h-full">
-                  <div className="w-12 h-12 bg-blue-100 rounded-xl flex items-center justify-center text-blue-600 mb-6 group-hover:scale-110 transition-transform">
-                    <Calendar className="w-6 h-6" />
-                  </div>
-                  <h3 className="text-lg font-bold text-gray-900 mb-2">Agenda Inteligente</h3>
-                  <p className="text-sm text-gray-500 leading-relaxed">
-                    Seus clientes agendam sozinhos através do seu link exclusivo, 24 horas por dia.
-                  </p>
-               </Card>
-               <Card className="hover:border-brand-500 transition-colors cursor-default group h-full">
-                  <div className="w-12 h-12 bg-green-100 rounded-xl flex items-center justify-center text-green-600 mb-6 group-hover:scale-110 transition-transform">
-                    <BarChart3 className="w-6 h-6" />
-                  </div>
-                  <h3 className="text-lg font-bold text-gray-900 mb-2">Gestão Financeira</h3>
-                  <p className="text-sm text-gray-500 leading-relaxed">
-                    Fluxo de caixa e relatórios de comissões automáticos para saber seu lucro real.
-                  </p>
-               </Card>
-               <Card className="hover:border-brand-500 transition-colors cursor-default group h-full">
-                  <div className="w-12 h-12 bg-purple-100 rounded-xl flex items-center justify-center text-purple-600 mb-6 group-hover:scale-110 transition-transform">
-                    <Globe className="w-6 h-6" />
-                  </div>
-                  <h3 className="text-lg font-bold text-gray-900 mb-2">Site Exclusivo</h3>
-                  <p className="text-sm text-gray-500 leading-relaxed">
-                    Uma vitrine profissional para divulgar seus serviços e fotos sem precisar de programador.
-                  </p>
-               </Card>
-               <Card className="hover:border-brand-500 transition-colors cursor-default group h-full">
-                  <div className="w-12 h-12 bg-orange-100 rounded-xl flex items-center justify-center text-orange-600 mb-6 group-hover:scale-110 transition-transform">
-                    <PieChart className="w-6 h-6" />
-                  </div>
-                  <h3 className="text-lg font-bold text-gray-900 mb-2">Dashboard Total</h3>
-                  <p className="text-sm text-gray-500 leading-relaxed">
-                    Visão 360º do seu salão com métricas de crescimento, retenção e serviços top.
-                  </p>
-               </Card>
+            <div className="order-1 md:order-2">
+                <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-yellow-100 text-yellow-800 font-bold text-xs uppercase mb-4">
+                    <Zap className="w-4 h-4" /> Aumente seu Ticket Médio
+                </div>
+                <h2 className="text-3xl md:text-4xl font-extrabold text-gray-900 mb-4 leading-tight">
+                    Não venda apenas horas. <br/> 
+                    <span className="text-brand-600">Venda produtos.</span>
+                </h2>
+                <p className="text-lg text-gray-600 leading-relaxed mb-6">
+                    Transforme seu agendamento em um E-commerce. O sistema oferece pomadas, shampoos e kits automaticamente enquanto seu cliente agenda o horário.
+                </p>
+                <ul className="space-y-3">
+                    <li className="flex items-start gap-3">
+                        <Check className="w-5 h-5 text-green-500 mt-1" />
+                        <span className="text-gray-700">Upsell automático no checkout.</span>
+                    </li>
+                    <li className="flex items-start gap-3">
+                        <Check className="w-5 h-5 text-green-500 mt-1" />
+                        <span className="text-gray-700">Controle de estoque integrado com baixa automática.</span>
+                    </li>
+                    <li className="flex items-start gap-3">
+                        <Check className="w-5 h-5 text-green-500 mt-1" />
+                        <span className="text-gray-700">Comissão de venda para seus profissionais.</span>
+                    </li>
+                </ul>
             </div>
         </div>
+
+        {/* Block 2: Management / BI */}
+        <div className="max-w-6xl mx-auto px-4 grid md:grid-cols-2 gap-12 items-center">
+             <div className="order-1">
+                <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-blue-100 text-blue-800 font-bold text-xs uppercase mb-4">
+                    <Target className="w-4 h-4" /> Inteligência de Negócio
+                </div>
+                <h2 className="text-3xl md:text-4xl font-extrabold text-gray-900 mb-4 leading-tight">
+                    Deixe de ser dono. <br/> 
+                    <span className="text-blue-600">Vire empresário.</span>
+                </h2>
+                <p className="text-lg text-gray-600 leading-relaxed mb-6">
+                    Chega de "achar" que o mês foi bom. Tenha certeza. Defina metas de faturamento, monitore sua margem de lucro real e saiba exatamente quem são seus melhores clientes.
+                </p>
+                <div className="grid grid-cols-2 gap-4">
+                    <div className="bg-white p-4 rounded-xl border border-gray-100 shadow-sm">
+                        <div className="text-2xl font-bold text-gray-900 mb-1">R$ 15k</div>
+                        <div className="text-xs text-gray-500">Meta do Mês</div>
+                        <div className="w-full bg-gray-100 h-1.5 mt-2 rounded-full overflow-hidden">
+                            <div className="bg-green-500 h-full w-[80%]"></div>
+                        </div>
+                    </div>
+                    <div className="bg-white p-4 rounded-xl border border-gray-100 shadow-sm">
+                        <div className="text-2xl font-bold text-gray-900 mb-1">32%</div>
+                        <div className="text-xs text-gray-500">Margem de Lucro</div>
+                        <div className="text-green-500 text-xs font-bold mt-2 flex items-center gap-1">
+                            <TrendingUp className="w-3 h-3" /> Subindo
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div className="order-2 relative">
+                 {/* Visual Representation of Dashboard */}
+                 <div className="bg-white rounded-2xl shadow-2xl p-6 border border-gray-200 rotate-1 hover:rotate-0 transition-transform duration-500">
+                     <div className="flex justify-between items-center mb-6">
+                         <div className="font-bold text-lg">Dashboard Executivo</div>
+                         <div className="flex gap-2">
+                             <div className="w-3 h-3 rounded-full bg-red-400"></div>
+                             <div className="w-3 h-3 rounded-full bg-yellow-400"></div>
+                             <div className="w-3 h-3 rounded-full bg-green-400"></div>
+                         </div>
+                     </div>
+                     <div className="space-y-4">
+                         <div className="h-32 bg-gray-50 rounded-xl border border-dashed border-gray-300 flex items-end justify-around p-4 pb-0">
+                             <div className="w-8 bg-brand-200 h-[40%] rounded-t"></div>
+                             <div className="w-8 bg-brand-300 h-[60%] rounded-t"></div>
+                             <div className="w-8 bg-brand-500 h-[80%] rounded-t"></div>
+                             <div className="w-8 bg-brand-600 h-[50%] rounded-t"></div>
+                             <div className="w-8 bg-gray-300 h-[30%] rounded-t"></div>
+                         </div>
+                         <div className="flex gap-4">
+                             <div className="flex-1 bg-red-50 p-3 rounded-lg border border-red-100">
+                                 <div className="text-xs text-red-600 font-bold mb-1">Clientes Perdidos</div>
+                                 <div className="text-xl font-bold text-gray-800">12</div>
+                             </div>
+                             <div className="flex-1 bg-blue-50 p-3 rounded-lg border border-blue-100">
+                                 <div className="text-xs text-blue-600 font-bold mb-1">Novos</div>
+                                 <div className="text-xl font-bold text-gray-800">45</div>
+                             </div>
+                         </div>
+                     </div>
+                 </div>
+            </div>
+        </div>
+
+        {/* Block 3: Team / Pro Panel */}
+        <div className="max-w-6xl mx-auto px-4 grid md:grid-cols-2 gap-12 items-center">
+            <div className="order-2 md:order-1 relative">
+                <Card className="p-0 overflow-hidden shadow-2xl border-0 bg-gray-900 text-white transform -rotate-1 hover:rotate-0 transition-transform">
+                    <div className="p-6 border-b border-gray-800 flex justify-between items-center">
+                        <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 rounded-full bg-gray-700 border-2 border-green-500"></div>
+                            <div>
+                                <div className="font-bold">João Barbeiro</div>
+                                <div className="text-xs text-gray-400">Online</div>
+                            </div>
+                        </div>
+                        <Badge color="green">R$ 2.450,00</Badge>
+                    </div>
+                    <div className="p-6 space-y-4">
+                        <div className="bg-gray-800 p-4 rounded-xl border border-gray-700">
+                             <div className="text-xs text-gray-400 uppercase mb-2">Sua Agenda Hoje</div>
+                             <div className="space-y-2">
+                                 <div className="flex justify-between text-sm"><span>09:00 - Corte</span> <span className="text-green-400">R$ 30,00</span></div>
+                                 <div className="flex justify-between text-sm"><span>10:00 - Barba</span> <span className="text-green-400">R$ 20,00</span></div>
+                                 <div className="flex justify-between text-sm opacity-50"><span>11:00 - Livre</span> <span>--</span></div>
+                             </div>
+                        </div>
+                        <Button className="w-full bg-brand-600 hover:bg-brand-500 border-0">Ver Meu Financeiro</Button>
+                    </div>
+                </Card>
+            </div>
+            <div className="order-1 md:order-2">
+                <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-purple-100 text-purple-800 font-bold text-xs uppercase mb-4">
+                    <User className="w-4 h-4" /> Retenção de Talentos
+                </div>
+                <h2 className="text-3xl md:text-4xl font-extrabold text-gray-900 mb-4 leading-tight">
+                    Sua equipe <br/> 
+                    <span className="text-purple-600">vestindo a camisa.</span>
+                </h2>
+                <p className="text-lg text-gray-600 leading-relaxed mb-6">
+                    Dê autonomia para seus profissionais. Cada barbeiro tem seu próprio app, QR Code para divulgação e, o mais importante: <b>controle financeiro pessoal</b> integrado.
+                </p>
+                <ul className="space-y-3">
+                    <li className="flex items-start gap-3">
+                        <Check className="w-5 h-5 text-green-500 mt-1" />
+                        <span className="text-gray-700">Link direto para agendar com o profissional.</span>
+                    </li>
+                    <li className="flex items-start gap-3">
+                        <Check className="w-5 h-5 text-green-500 mt-1" />
+                        <span className="text-gray-700">Calculadora de comissões em tempo real.</span>
+                    </li>
+                    <li className="flex items-start gap-3">
+                        <Check className="w-5 h-5 text-green-500 mt-1" />
+                        <span className="text-gray-700">Eles crescem, você cresce.</span>
+                    </li>
+                </ul>
+            </div>
+        </div>
+
+        {/* Block 4: Native App Tech */}
+        <div className="max-w-6xl mx-auto px-4 grid md:grid-cols-2 gap-12 items-center">
+             <div className="order-1">
+                <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-gray-100 text-gray-800 font-bold text-xs uppercase mb-4">
+                    <Smartphone className="w-4 h-4" /> Tecnologia de Ponta
+                </div>
+                <h2 className="text-3xl md:text-4xl font-extrabold text-gray-900 mb-4 leading-tight">
+                    Experiência de <br/> 
+                    <span className="text-gray-900 bg-brand-200 px-2 rounded transform -rotate-1 inline-block">App Nativo</span>
+                </h2>
+                <p className="text-lg text-gray-600 leading-relaxed mb-6">
+                    Esqueça sites lentos que parecem dos anos 2000. Entregamos uma experiência fluida, sem carregamentos chatos. Um aplicativo real instalado no celular do seu cliente e da sua equipe.
+                </p>
+                <div className="flex gap-4">
+                    <div className="flex items-center gap-2 bg-white px-4 py-2 rounded-lg shadow-sm border border-gray-100">
+                        <Zap className="w-5 h-5 text-yellow-500" />
+                        <span className="font-bold text-gray-800">Zero Delay</span>
+                    </div>
+                    <div className="flex items-center gap-2 bg-white px-4 py-2 rounded-lg shadow-sm border border-gray-100">
+                        <ShieldCheck className="w-5 h-5 text-green-500" />
+                        <span className="font-bold text-gray-800">Seguro</span>
+                    </div>
+                </div>
+            </div>
+            <div className="order-2 flex justify-center">
+                 <div className="relative w-64 h-[500px] bg-gray-900 rounded-[3rem] border-8 border-gray-800 shadow-2xl overflow-hidden">
+                     {/* Screen Mockup */}
+                     <div className="absolute top-0 left-1/2 -translate-x-1/2 w-32 h-6 bg-gray-800 rounded-b-xl z-20"></div>
+                     <div className="h-full bg-gray-50 flex flex-col pt-8">
+                         <div className="px-4 mb-4">
+                             <div className="w-12 h-12 bg-brand-100 rounded-full mb-2"></div>
+                             <div className="h-4 bg-gray-200 w-3/4 rounded mb-1"></div>
+                             <div className="h-3 bg-gray-100 w-1/2 rounded"></div>
+                         </div>
+                         <div className="flex-1 bg-white rounded-t-3xl p-4 shadow-[0_-5px_20px_rgba(0,0,0,0.05)]">
+                             <div className="flex gap-2 overflow-hidden mb-4">
+                                 <div className="w-24 h-32 bg-gray-100 rounded-xl flex-shrink-0"></div>
+                                 <div className="w-24 h-32 bg-gray-100 rounded-xl flex-shrink-0"></div>
+                             </div>
+                             <div className="space-y-2">
+                                 <div className="h-12 bg-brand-50 rounded-xl w-full"></div>
+                                 <div className="h-12 bg-gray-50 rounded-xl w-full"></div>
+                                 <div className="h-12 bg-gray-50 rounded-xl w-full"></div>
+                             </div>
+                         </div>
+                         {/* Bottom Nav Mockup */}
+                         <div className="h-16 bg-white border-t border-gray-100 flex justify-around items-center px-2">
+                             <div className="w-8 h-8 rounded bg-brand-100"></div>
+                             <div className="w-8 h-8 rounded bg-gray-100"></div>
+                             <div className="w-8 h-8 rounded bg-gray-100"></div>
+                         </div>
+                     </div>
+                 </div>
+            </div>
+        </div>
+
       </section>
 
       {/* Pricing - DYNAMIC FROM STORE */}
@@ -314,6 +509,7 @@ export const SaaSLandingPage: React.FC<{
             <div>
                 <h4 className="text-white font-bold mb-4">Produto</h4>
                 <ul className="space-y-2 text-sm">
+                    <li><button onClick={onHowItWorks} className="hover:text-white">Como Funciona</button></li>
                     <li><a href="#" className="hover:text-white">Funcionalidades</a></li>
                     <li><a href="#" className="hover:text-white">Planos</a></li>
                 </ul>
@@ -334,3 +530,4 @@ export const SaaSLandingPage: React.FC<{
     </div>
   );
 };
+    

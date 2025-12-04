@@ -84,7 +84,7 @@ export const Login: React.FC<{
                         className={`flex-1 py-1 text-sm font-bold rounded-md transition-colors ${userType === 'owner' ? 'bg-white shadow text-gray-900' : 'text-gray-500'}`}
                         onClick={() => setUserType('owner')}
                       >
-                          Sou Dono
+                          Sou Proprietário
                       </button>
                       <button 
                         className={`flex-1 py-1 text-sm font-bold rounded-md transition-colors ${userType === 'professional' ? 'bg-white shadow text-gray-900' : 'text-gray-500'}`}
