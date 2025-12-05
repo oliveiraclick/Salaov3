@@ -1,8 +1,9 @@
 
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { Salon, StoreContextType, Appointment, PlanType, BlockedPeriod, Client, SaaSPlan, Coupon, Transaction, Product } from './types';
+import { Salon, StoreContextType, Appointment, PlanType, BlockedPeriod, Client, SaaSPlan, Coupon, Transaction, Product, Service, Professional } from './types';
+import { supabase } from './services/supabaseClient';
 
-// Simple mock UUID generator
+// Simple mock UUID generator (fallback)
 const generateId = () => Math.random().toString(36).substr(2, 9);
 
 const INITIAL_PLANS: SaaSPlan[] = [
@@ -37,6 +38,8 @@ const INITIAL_SALONS: Salon[] = [
   {
     id: '1',
     name: 'Barbearia Vintage',
+    ownerEmail: 'contato@vintage.com',
+    password: '123',
     slug: 'vintage-barber',
     description: 'Estilo clássico para o homem moderno.',
     plan: 'professional',
@@ -46,10 +49,23 @@ const INITIAL_SALONS: Salon[] = [
       { id: 's2', name: 'Barba Completa', durationMinutes: 30, price: 40 },
     ],
     professionals: [
-      { id: 'p1', name: 'João Silva', avatarUrl: 'https://i.pravatar.cc/150?u=1', commissionRate: 50, productCommissionRate: 10, password: '123' },
-      { id: 'p2', name: 'Pedro Santos', avatarUrl: 'https://i.pravatar.cc/150?u=2', commissionRate: 40, productCommissionRate: 15, password: '123' },
+      { id: 'p1', name: 'João Silva', email: 'joao@vintage.com', avatarUrl: 'https://i.pravatar.cc/150?u=1', commissionRate: 50, productCommissionRate: 10, password: '123' },
+      { id: 'p2', name: 'Pedro Santos', email: 'pedro@vintage.com', avatarUrl: 'https://i.pravatar.cc/150?u=2', commissionRate: 40, productCommissionRate: 15, password: '123' },
     ],
-    appointments: [],
+    appointments: [
+        // Adicionando histórico para o cliente de teste ver nos favoritos
+        { 
+            id: 'appt-demo-1', 
+            salonId: '1', 
+            serviceId: 's1', 
+            professionalId: 'p1', 
+            clientName: 'Carlos Cliente', 
+            clientPhone: '11999990000', 
+            date: new Date(Date.now() - 5 * 86400000).toISOString(), 
+            status: 'completed', 
+            price: 60 
+        }
+    ],
     transactions: [], 
     products: [
         { id: 'prod1', name: 'Cera Modeladora', quantity: 15, minQuantity: 5, unit: 'un', isForSale: true, salePrice: 45, costPrice: 20, image: 'https://images.unsplash.com/photo-1620916566398-39f1143ab7be?auto=format&fit=crop&q=80&w=200' },
@@ -62,6 +78,7 @@ const INITIAL_SALONS: Salon[] = [
     slotInterval: 30,
     blockedPeriods: [],
     revenueGoal: 15000,
+    allowClientCancellation: true,
     coverImage: 'https://images.unsplash.com/photo-1585747860715-2ba37e788b70?auto=format&fit=crop&q=80&w=1000',
     aboutUs: 'Fundada em 2015, a Barbearia Vintage traz o conceito das clássicas barbearias nova-iorquinas para o coração de São Paulo. Aqui você encontra cerveja gelada, boa conversa e um corte impecável.',
     socials: {
@@ -69,37 +86,67 @@ const INITIAL_SALONS: Salon[] = [
         whatsapp: '11999999999',
         website: 'www.vintage.com.br'
     },
+    gallery: [
+        'https://images.unsplash.com/photo-1599351431202-6e0005079746?auto=format&fit=crop&q=80&w=500',
+        'https://images.unsplash.com/photo-1503951914875-befbb7470d03?auto=format&fit=crop&q=80&w=500',
+        'https://images.unsplash.com/photo-1621605815971-fbc98d665033?auto=format&fit=crop&q=80&w=500'
+    ],
     subscriptionStatus: 'active',
     monthlyFee: 39.90, 
     nextBillingDate: new Date(Date.now() + 15 * 86400000).toISOString()
   },
   {
     id: '2',
-    name: 'Studio Bella',
-    slug: 'studio-bella',
-    description: 'Sua beleza em primeiro lugar.',
+    name: 'Lava Rápido Turbo',
+    ownerEmail: 'gerente@lavarapidoturbo.com',
+    password: '123',
+    slug: 'lava-rapido-turbo',
+    description: 'Seu carro novo de novo em minutos.',
     plan: 'start',
-    address: 'Av. Paulista, 2000 - SP',
+    address: 'Av. dos Bandeirantes, 1500 - SP',
     services: [
-      { id: 's3', name: 'Manicure', durationMinutes: 60, price: 50 },
+      { id: 's3', name: 'Lavagem Simples', durationMinutes: 40, price: 50 },
+      { id: 's4', name: 'Lavagem Com Cera', durationMinutes: 60, price: 80 },
+      { id: 's5', name: 'Higienização Interna', durationMinutes: 120, price: 200 },
     ],
     professionals: [
-      { id: 'p3', name: 'Ana Costa', avatarUrl: 'https://i.pravatar.cc/150?u=3', commissionRate: 60, productCommissionRate: 10, password: '123' },
+      { id: 'p3', name: 'Equipe Box 1', email: 'box1@lavarapidoturbo.com', avatarUrl: 'https://images.unsplash.com/photo-1605218427306-635ba2439715?auto=format&fit=crop&q=80&w=200', commissionRate: 30, productCommissionRate: 5, password: '123' },
+      { id: 'p4', name: 'Equipe Box 2', email: 'box2@lavarapidoturbo.com', avatarUrl: 'https://images.unsplash.com/photo-1552930294-6b595f4c2974?auto=format&fit=crop&q=80&w=200', commissionRate: 30, productCommissionRate: 5, password: '123' },
     ],
-    appointments: [],
+    appointments: [
+        { 
+            id: 'appt-demo-2', 
+            salonId: '2', 
+            serviceId: 's3', 
+            professionalId: 'p3', 
+            clientName: 'Carlos Cliente', 
+            clientPhone: '11999990000', 
+            date: new Date(Date.now() - 2 * 86400000).toISOString(), 
+            status: 'completed', 
+            price: 50 
+        }
+    ],
     transactions: [],
-    products: [],
-    category: 'Salão',
-    openTime: '10:00',
-    closeTime: '19:00',
-    slotInterval: 60,
+    products: [
+        { id: 'prod-auto-1', name: 'Aromatizante Carro Novo', quantity: 50, minQuantity: 10, unit: 'un', isForSale: true, salePrice: 15, costPrice: 5, image: 'https://images.unsplash.com/photo-1550963295-019d8a8a61c5?auto=format&fit=crop&q=80&w=200' },
+        { id: 'prod-auto-2', name: 'Pretinho Pneu', quantity: 20, minQuantity: 5, unit: 'un', isForSale: true, salePrice: 25, costPrice: 10, image: 'https://images.unsplash.com/photo-1601362840469-51e4d8d58785?auto=format&fit=crop&q=80&w=200' }
+    ],
+    category: 'Automotivo',
+    openTime: '08:00',
+    closeTime: '18:00',
+    slotInterval: 40,
     blockedPeriods: [],
-    revenueGoal: 5000,
-    coverImage: 'https://images.unsplash.com/photo-1560066984-138dadb4c035?auto=format&fit=crop&q=80&w=1000',
-    aboutUs: 'Especialistas em realçar a sua beleza natural. Ambiente climatizado e profissionais altamente qualificados.',
+    revenueGoal: 20000,
+    allowClientCancellation: false,
+    coverImage: 'https://images.unsplash.com/photo-1601362840469-51e4d8d58785?auto=format&fit=crop&q=80&w=1000',
+    aboutUs: 'Especialistas em estética automotiva. Utilizamos apenas produtos biodegradáveis de alta performance.',
     socials: {
-        instagram: '@studiobella'
+        instagram: '@lavarapidoturbo'
     },
+    gallery: [
+        'https://images.unsplash.com/photo-1601362840469-51e4d8d58785?auto=format&fit=crop&q=80&w=500',
+        'https://images.unsplash.com/photo-1520340356584-7eb3cb40645e?auto=format&fit=crop&q=80&w=500'
+    ],
     subscriptionStatus: 'active',
     monthlyFee: 0,
     nextBillingDate: new Date(Date.now() + 10 * 86400000).toISOString()
@@ -111,9 +158,8 @@ const INITIAL_COUPONS: Coupon[] = [
     { id: 'c2', code: 'BEMVINDO', discountPercent: 20, active: true, uses: 12 }
 ];
 
-// Mock Client Data to verify Birthday functionality
 const INITIAL_CLIENTS: Client[] = [
-    { id: 'c1', name: 'Carlos Cliente', phone: '11999990000', birthDate: new Date().toISOString().split('T')[0] }, // Birthday Today
+    { id: 'c1', name: 'Carlos Cliente', phone: '11999990000', birthDate: new Date().toISOString().split('T')[0] },
     { id: 'c2', name: 'Maria Souza', phone: '11999991111', birthDate: '1990-05-15' },
     { id: 'c3', name: 'Pedro Cliente', phone: '11988887777', birthDate: '1985-01-01' }
 ];
@@ -121,168 +167,129 @@ const INITIAL_CLIENTS: Client[] = [
 const StoreContext = createContext<StoreContextType | undefined>(undefined);
 
 export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  // Load from LocalStorage or use initial
-  const [salons, setSalons] = useState<Salon[]>(() => {
-      const saved = localStorage.getItem('salons');
-      return saved ? JSON.parse(saved) : INITIAL_SALONS;
-  });
+  // State initialization
+  const [salons, setSalons] = useState<Salon[]>(INITIAL_SALONS);
+  const [saasPlans, setSaasPlans] = useState<SaaSPlan[]>(INITIAL_PLANS);
+  const [coupons, setCoupons] = useState<Coupon[]>(INITIAL_COUPONS);
+  const [clients, setClients] = useState<Client[]>(INITIAL_CLIENTS);
   
-  const [saasPlans, setSaasPlans] = useState<SaaSPlan[]>(() => {
-      const saved = localStorage.getItem('saasPlans');
-      return saved ? JSON.parse(saved) : INITIAL_PLANS;
-  });
-
-  const [coupons, setCoupons] = useState<Coupon[]>(() => {
-      const saved = localStorage.getItem('coupons');
-      return saved ? JSON.parse(saved) : INITIAL_COUPONS;
-  });
-
-  const [clients, setClients] = useState<Client[]>(() => {
-      const saved = localStorage.getItem('clients');
-      return saved ? JSON.parse(saved) : INITIAL_CLIENTS;
-  });
-
   const [currentSalonId, setCurrentSalonId] = useState<string | null>(null);
-  
-  const saasRevenueGoal = 5000; // Mock SaaS Goal
+  const saasRevenueGoal = 5000;
+  const [isLoading, setIsLoading] = useState(true);
 
-  // Persistence
-  useEffect(() => localStorage.setItem('salons', JSON.stringify(salons)), [salons]);
-  useEffect(() => localStorage.setItem('saasPlans', JSON.stringify(saasPlans)), [saasPlans]);
-  useEffect(() => localStorage.setItem('coupons', JSON.stringify(coupons)), [coupons]);
-  useEffect(() => localStorage.setItem('clients', JSON.stringify(clients)), [clients]);
+  // --- SUPABASE DATA FETCHING ---
+  const loadDataFromSupabase = async () => {
+    if (!supabase) return false;
 
-  const updateSalon = (updatedSalon: Salon) => {
-    setSalons(prev => prev.map(s => s.id === updatedSalon.id ? updatedSalon : s));
-  };
-
-  const addAppointment = (salonId: string, appointment: Appointment) => {
-    setSalons(prev => prev.map(s => {
-      if (s.id === salonId) {
-        // Calculate Total Price (Service + Products)
-        let totalAmount = appointment.price;
-        if (appointment.products) {
-            totalAmount += appointment.products.reduce((acc, p) => acc + (p.salePrice || 0), 0);
-        }
-
-        // Auto-create income transaction for completed appointments (simulated for scheduled too for MVP simplicity)
-        const newTransaction: Transaction = {
-            id: generateId(),
-            description: `Agendamento: ${appointment.clientName}${appointment.products?.length ? ' + Produtos' : ''}`,
-            amount: totalAmount,
-            type: 'income',
-            date: appointment.date.split('T')[0],
-            category: 'Serviços',
-            paymentMethod: 'cash', // Default
-            isAutoGenerated: true
-        };
+    try {
+        // Fetch base tables
+        const { data: salonsData } = await supabase.from('salons').select('*');
+        const { data: servicesData } = await supabase.from('services').select('*');
+        const { data: professionalsData } = await supabase.from('professionals').select('*');
+        const { data: appointmentsData } = await supabase.from('appointments').select('*');
+        const { data: productsData } = await supabase.from('products').select('*');
+        const { data: transactionsData } = await supabase.from('transactions').select('*');
+        const { data: clientsData } = await supabase.from('clients').select('*');
         
-        // Decrement product stock if any products were bought
-        let updatedProducts = [...s.products];
-        if (appointment.products) {
-            appointment.products.forEach(boughtProd => {
-                updatedProducts = updatedProducts.map(p => 
-                    p.id === boughtProd.id ? { ...p, quantity: Math.max(0, p.quantity - 1) } : p
-                );
-            });
+        // Reconstruct nested Salon objects
+        if (salonsData) {
+            const fullSalons: Salon[] = salonsData.map(s => ({
+                ...s,
+                services: servicesData?.filter(svc => svc.salon_id === s.id) || [],
+                professionals: professionalsData?.filter(p => p.salon_id === s.id) || [],
+                appointments: appointmentsData?.filter(a => a.salon_id === s.id) || [],
+                products: productsData?.filter(p => p.salon_id === s.id) || [],
+                transactions: transactionsData?.filter(t => t.salon_id === s.id) || [],
+                blockedPeriods: [],
+                allowClientCancellation: true // Default if column doesn't exist
+            }));
+            setSalons(fullSalons);
         }
 
-        return { 
-            ...s, 
-            products: updatedProducts,
-            appointments: [...s.appointments, { ...appointment, price: totalAmount }], // Store total price
-            transactions: [...s.transactions, newTransaction] // Auto-add to finance
-        };
+        if (clientsData) {
+            // Map back snake_case to camelCase
+            const mappedClients = clientsData.map((c: any) => ({
+                id: c.id,
+                name: c.name,
+                phone: c.phone,
+                birthDate: c.birth_date
+            }));
+            setClients(mappedClients);
+        }
+        
+        return true;
+    } catch (error) {
+        console.error("Supabase load error:", error);
+        return false;
+    }
+  };
+
+  // --- PERSISTENCE ---
+  useEffect(() => {
+    const init = async () => {
+        setIsLoading(true);
+        const connected = await loadDataFromSupabase();
+        
+        if (!connected) {
+            // Fallback to LocalStorage if Supabase is not configured or fails
+            const savedSalons = localStorage.getItem('salons');
+            if (savedSalons) setSalons(JSON.parse(savedSalons));
+            
+            const savedPlans = localStorage.getItem('saasPlans');
+            if (savedPlans) setSaasPlans(JSON.parse(savedPlans));
+
+            const savedClients = localStorage.getItem('clients');
+            if (savedClients) setClients(JSON.parse(savedClients));
+        }
+        setIsLoading(false);
+    };
+    init();
+  }, []);
+
+  // Sync to LocalStorage (Backup for Hybrid mode)
+  useEffect(() => {
+      if (!supabase) {
+          localStorage.setItem('salons', JSON.stringify(salons));
+          localStorage.setItem('saasPlans', JSON.stringify(saasPlans));
+          localStorage.setItem('coupons', JSON.stringify(coupons));
+          localStorage.setItem('clients', JSON.stringify(clients));
       }
-      return s;
-    }));
+  }, [salons, saasPlans, coupons, clients]);
+
+  // --- ACTIONS ---
+
+  const updateSalon = async (updatedSalon: Salon) => {
+    // Optimistic Update
+    setSalons(prev => prev.map(s => s.id === updatedSalon.id ? updatedSalon : s));
+    
+    if (supabase) {
+        const { id, name, description, address, openTime, closeTime, coverImage, aboutUs, revenueGoal } = updatedSalon;
+        await supabase.from('salons').update({ 
+            name, description, address, open_time: openTime, close_time: closeTime, cover_image: coverImage, about_us: aboutUs, revenue_goal: revenueGoal 
+        }).eq('id', id);
+    }
   };
 
-  const addBlockedPeriod = (salonId: string, blockedPeriod: BlockedPeriod) => {
-     setSalons(prev => prev.map(s => {
-      if (s.id === salonId) {
-        return { ...s, blockedPeriods: [...(s.blockedPeriods || []), blockedPeriod] };
-      }
-      return s;
-    }));
-  };
-
-  const addTransaction = (salonId: string, transaction: Transaction) => {
-      setSalons(prev => prev.map(s => {
-          if (s.id !== salonId) return s;
-
-          let newTransactions = [...s.transactions, transaction];
-
-          // Handle Installments logic
-          if (transaction.paymentMethod === 'credit_split' && transaction.installments) {
-              const totalInstallments = transaction.installments.total;
-              const baseDate = new Date(transaction.date);
-              
-              // We already added the first one (current: 1). Add the rest.
-              for (let i = 1; i < totalInstallments; i++) {
-                  const nextDate = new Date(baseDate);
-                  nextDate.setMonth(baseDate.getMonth() + i);
-                  
-                  newTransactions.push({
-                      ...transaction,
-                      id: generateId(),
-                      date: nextDate.toISOString().split('T')[0],
-                      description: `${transaction.description} (${i + 1}/${totalInstallments})`,
-                      installments: {
-                          current: i + 1,
-                          total: totalInstallments
-                      }
-                  });
-              }
-          }
-          
-          return { ...s, transactions: newTransactions };
-      }));
-  };
-
-  const addProduct = (salonId: string, product: Product) => {
-      setSalons(prev => prev.map(s => {
-          if(s.id === salonId) {
-              return { ...s, products: [...s.products, product] };
-          }
-          return s;
-      }));
-  };
-
-  const updateProduct = (salonId: string, productId: string, quantity: number) => {
-       setSalons(prev => prev.map(s => {
-          if(s.id === salonId) {
-              return { 
-                  ...s, 
-                  products: s.products.map(p => p.id === productId ? { ...p, quantity } : p) 
-              };
-          }
-          return s;
-      }));
-  };
-
-  const createSalon = (name: string, plan: PlanType, couponCode?: string) => {
+  const createSalon = async (name: string, plan: PlanType, address: string, ownerName?: string, email?: string, password?: string, couponCode?: string) => {
     const selectedPlan = saasPlans.find(p => p.id === plan);
     let fee = selectedPlan?.price || 0;
     
-    // Apply Coupon Logic
     if (couponCode) {
         const coupon = coupons.find(c => c.code === couponCode && c.active);
         if (coupon) {
-            const discount = (fee * coupon.discountPercent) / 100;
-            fee = fee - discount;
-            // Update coupon usage
-            setCoupons(prev => prev.map(c => c.id === coupon.id ? { ...c, uses: c.uses + 1 } : c));
+            fee = fee - ((fee * coupon.discountPercent) / 100);
         }
     }
-    
+
     const newSalon: Salon = {
       id: generateId(),
       name,
+      ownerEmail: email || `admin@${name.toLowerCase().replace(/\s+/g, '')}.com`, 
+      password: password || '123',
       slug: name.toLowerCase().replace(/\s+/g, '-'),
-      description: 'Novo salão cadastrado.',
+      description: 'Novo salão.',
       plan,
-      address: 'Endereço não informado',
+      address: address, // Using passed address
       services: [],
       professionals: [],
       appointments: [],
@@ -297,9 +304,130 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       monthlyFee: fee,
       appliedCoupon: couponCode,
       nextBillingDate: new Date(Date.now() + 30 * 86400000).toISOString(),
-      revenueGoal: 5000
+      revenueGoal: 5000,
+      allowClientCancellation: true
     };
+
     setSalons(prev => [...prev, newSalon]);
+
+    if (supabase) {
+        // Map to DB columns
+        await supabase.from('salons').insert([{
+            id: newSalon.id,
+            name: newSalon.name,
+            plan: newSalon.plan,
+            address: newSalon.address,
+            monthly_fee: newSalon.monthlyFee,
+            subscription_status: 'active'
+        }]);
+    }
+  };
+
+  const addAppointment = async (salonId: string, appointment: Appointment) => {
+    setSalons(prev => prev.map(s => {
+      if (s.id === salonId) {
+        let totalAmount = appointment.price;
+        if (appointment.products) {
+            totalAmount += appointment.products.reduce((acc, p) => acc + (p.salePrice || 0), 0);
+        }
+
+        const newTransaction: Transaction = {
+            id: generateId(),
+            description: `Agendamento: ${appointment.clientName}`,
+            amount: totalAmount,
+            type: 'income',
+            date: appointment.date.split('T')[0],
+            category: 'Serviços',
+            paymentMethod: 'cash',
+            isAutoGenerated: true
+        };
+        
+        return { 
+            ...s, 
+            appointments: [...s.appointments, { ...appointment, price: totalAmount }],
+            transactions: [...s.transactions, newTransaction]
+        };
+      }
+      return s;
+    }));
+
+    if (supabase) {
+        // Insert into appointments table
+        await supabase.from('appointments').insert([{
+            salon_id: salonId,
+            client_name: appointment.clientName,
+            client_phone: appointment.clientPhone,
+            date: appointment.date,
+            service_id: appointment.serviceId,
+            professional_id: appointment.professionalId,
+            price: appointment.price,
+            status: 'scheduled',
+            products: appointment.products // Stores JSONB for products
+        }]);
+    }
+  };
+
+  const cancelAppointment = (salonId: string, appointmentId: string) => {
+      setSalons(prev => prev.map(s => {
+          if (s.id === salonId) {
+              return {
+                  ...s,
+                  appointments: s.appointments.map(a => 
+                      a.id === appointmentId ? { ...a, status: 'cancelled' } : a
+                  )
+              };
+          }
+          return s;
+      }));
+      if (supabase) {
+          supabase.from('appointments').update({ status: 'cancelled' }).eq('id', appointmentId);
+      }
+  };
+
+  const addProduct = async (salonId: string, product: Product) => {
+      setSalons(prev => prev.map(s => {
+          if(s.id === salonId) {
+              return { ...s, products: [...s.products, product] };
+          }
+          return s;
+      }));
+
+      if(supabase) {
+          await supabase.from('products').insert([{
+              id: product.id, // Ensure UUID or let DB generate
+              salon_id: salonId,
+              name: product.name,
+              quantity: product.quantity,
+              sale_price: product.salePrice,
+              cost_price: product.costPrice,
+              is_for_sale: product.isForSale,
+              image: product.image
+          }]);
+      }
+  };
+
+  const updateProduct = (salonId: string, productId: string, quantity: number) => {
+       setSalons(prev => prev.map(s => {
+          if(s.id === salonId) {
+              return { 
+                  ...s, 
+                  products: s.products.map(p => p.id === productId ? { ...p, quantity } : p) 
+              };
+          }
+          return s;
+      }));
+      if (supabase) {
+          supabase.from('products').update({ quantity }).eq('id', productId);
+      }
+  };
+
+  const addBlockedPeriod = (salonId: string, blockedPeriod: BlockedPeriod) => {
+     setSalons(prev => prev.map(s => {
+      if (s.id === salonId) {
+        return { ...s, blockedPeriods: [...(s.blockedPeriods || []), blockedPeriod] };
+      }
+      return s;
+    }));
   };
 
   const saveClient = (client: Client) => {
@@ -307,13 +435,40 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           if (prev.some(c => c.phone === client.phone)) return prev;
           return [...prev, client];
       });
+      if(supabase) {
+          supabase.from('clients').insert([{
+              id: client.id,
+              name: client.name,
+              phone: client.phone,
+              birth_date: client.birthDate
+          }]).then(r => {
+              if (r.error) console.error("Client save error", r.error);
+          });
+      }
   };
 
   const getClientByPhone = (phone: string) => {
       return clients.find(c => c.phone === phone);
   };
 
-  // SaaS Admin Actions
+  const addTransaction = (salonId: string, transaction: Transaction) => {
+      setSalons(prev => prev.map(s => {
+          if (s.id !== salonId) return s;
+          return { ...s, transactions: [...s.transactions, transaction] };
+      }));
+      if (supabase) {
+          supabase.from('transactions').insert([{
+              salon_id: salonId,
+              description: transaction.description,
+              amount: transaction.amount,
+              type: transaction.type,
+              category: transaction.category,
+              date: transaction.date,
+              payment_method: transaction.paymentMethod
+          }]);
+      }
+  };
+  
   const updateSaaSPlan = (updatedPlan: SaaSPlan) => {
       setSaasPlans(prev => prev.map(p => p.id === updatedPlan.id ? updatedPlan : p));
   };
@@ -331,9 +486,13 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const toggleSalonStatus = (salonId: string) => {
       setSalons(prev => prev.map(s => {
           if (s.id === salonId) {
+              const newStatus = s.subscriptionStatus === 'active' ? 'late' : 'active';
+              if(supabase) {
+                  supabase.from('salons').update({ subscription_status: newStatus }).eq('id', salonId);
+              }
               return { 
                   ...s, 
-                  subscriptionStatus: s.subscriptionStatus === 'active' ? 'late' : 'active'
+                  subscriptionStatus: newStatus
               };
           }
           return s;
@@ -344,7 +503,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     <StoreContext.Provider value={{ 
         salons, saasPlans, coupons, clients, saasRevenueGoal, currentSalonId, 
         setCurrentSalonId, updateSalon, addAppointment, createSalon, 
-        addBlockedPeriod, saveClient, getClientByPhone,
+        addBlockedPeriod, saveClient, getClientByPhone, cancelAppointment,
         addTransaction, updateSaaSPlan, createCoupon, toggleSalonStatus,
         addProduct, updateProduct
     }}>

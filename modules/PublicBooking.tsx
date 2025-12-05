@@ -1,21 +1,23 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useStore } from '../store';
 import { Button, AppShell, MobileNav, MobileNavItem, Badge, Modal, Input } from '../components/UI';
-import { Calendar, Clock, MapPin, CheckCircle, User, ChevronLeft, Scissors, Lock, Home, Globe, Instagram, Facebook, MessageCircle, ShoppingBag, Plus, Minus, Trash2, Image, Search } from 'lucide-react';
+import { Calendar, Clock, MapPin, CheckCircle, User, ChevronLeft, Scissors, Lock, Home, Globe, Instagram, Facebook, MessageCircle, ShoppingBag, Plus, Minus, Trash2, Image, Search, Edit } from 'lucide-react';
 import { Service, Professional, Product } from '../types';
 
 export const PublicBooking: React.FC<{ 
   salonId: string; 
   professionalId?: string; // Optional Deep Link Param
-  onBack: () => void; // Used internally only if we really wanted to exit, but we are hiding it.
+  fromPortal?: boolean; // If true, behaves like the "Agenda" tab of the Client Portal
+  clientPhone?: string; // If from portal, pass the logged user phone
+  onBack: () => void; 
   onAdminAccess: (salonId: string) => void; 
-}> = ({ salonId, professionalId, onBack, onAdminAccess }) => {
+}> = ({ salonId, professionalId, fromPortal, clientPhone: portalClientPhone, onBack, onAdminAccess }) => {
   const { salons, addAppointment, saveClient, getClientByPhone } = useStore();
   const salon = salons.find(s => s.id === salonId);
 
-  // Booking Flow State
-  const [step, setStep] = useState<0 | 1 | 2 | 3 | 4>(0); // 0 = Profile/Showcase
+  // If from Portal, start at step 1 (Services), otherwise step 0 (Profile)
+  const [step, setStep] = useState<0 | 1 | 2 | 3 | 4>(fromPortal ? 1 : 0); 
   const [clientView, setClientView] = useState<'home' | 'gallery' | 'about'>('home');
   const [selectedService, setSelectedService] = useState<Service | null>(null);
   const [selectedProfessional, setSelectedProfessional] = useState<Professional | null>(null);
@@ -32,22 +34,48 @@ export const PublicBooking: React.FC<{
   const [clientBirthDate, setClientBirthDate] = useState('');
   const [isNewClient, setIsNewClient] = useState(false);
   const [clientVerified, setClientVerified] = useState(false);
+  const [isEditingData, setIsEditingData] = useState(false); // New state for editing pre-filled data
 
   // My Appointments State
   const [isMyApptsOpen, setIsMyApptsOpen] = useState(false);
   const [lookupPhone, setLookupPhone] = useState('');
   const [myFoundAppts, setMyFoundAppts] = useState<any[]>([]);
 
-  // Handle Deep Link
+  // Scroll Ref
+  const confirmBtnRef = useRef<HTMLDivElement>(null);
+
+  // Handle Deep Link & Portal Phone
   useEffect(() => {
       if (professionalId && salon) {
           const pro = salon.professionals.find(p => p.id === professionalId);
           if (pro) {
               setSelectedProfessional(pro);
-              // We don't skip step 0, but we will skip step 2 later
           }
       }
-  }, [professionalId, salon]);
+      
+      if (fromPortal && portalClientPhone) {
+          setClientPhone(portalClientPhone);
+          // Trigger verification immediately for portal users
+          const existingClient = getClientByPhone(portalClientPhone);
+          if (existingClient) {
+              setClientName(existingClient.name);
+              setClientBirthDate(existingClient.birthDate);
+              setClientVerified(true);
+              setIsNewClient(false);
+          }
+      }
+  }, [professionalId, salon, fromPortal, portalClientPhone]);
+
+  // Auto Scroll Effect
+  useEffect(() => {
+      if (step === 3 && (clientVerified || (fromPortal && !isEditingData))) {
+          // Give a small delay for render to complete
+          const timer = setTimeout(() => {
+              confirmBtnRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          }, 300);
+          return () => clearTimeout(timer);
+      }
+  }, [clientVerified, fromPortal, isEditingData, step]);
 
   if (!salon) return <div>Salão não encontrado</div>;
 
@@ -71,8 +99,26 @@ export const PublicBooking: React.FC<{
       const start = parseInt(salon.openTime.split(':')[0]) * 60 + parseInt(salon.openTime.split(':')[1]);
       const end = parseInt(salon.closeTime.split(':')[0]) * 60 + parseInt(salon.closeTime.split(':')[1]);
       const interval = salon.slotInterval || 30;
+      
+      const now = new Date();
+      // Safe string comparison for local date to avoid timezone issues
+      // Get current date in YYYY-MM-DD format based on user's local time
+      const year = now.getFullYear();
+      const month = String(now.getMonth() + 1).padStart(2, '0');
+      const day = String(now.getDate()).padStart(2, '0');
+      const todayString = `${year}-${month}-${day}`;
+      
+      const isToday = selectedDate === todayString;
+      const currentMinutes = now.getHours() * 60 + now.getMinutes();
+
       const slots = [];
       for (let time = start; time < end; time += interval) {
+          // Check if time has passed if it's today
+          // Add a small buffer (e.g., 15 mins) so user doesn't see a slot that is literally "now"
+          if (isToday && time <= currentMinutes + 15) {
+              continue;
+          }
+
           const hours = Math.floor(time / 60);
           const minutes = time % 60;
           const timeString = `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
@@ -111,28 +157,26 @@ export const PublicBooking: React.FC<{
         const existingClient = getClientByPhone(cleanPhone);
         if (existingClient) {
             setClientName(existingClient.name);
-            // Format existing date to DD/MM/YYYY if stored as ISO
-            // Or just use as is if simple string. Assuming ISO YYYY-MM-DD for storage
-            // Displaying simplified for MVP
             setClientBirthDate(existingClient.birthDate);
             setIsNewClient(false);
             setClientVerified(true);
         } else if (cleanPhone.length >= 10) {
-            // Only suggest new client if phone looks complete
             setIsNewClient(true);
             setClientVerified(true);
         }
     }
   };
 
-  // Real-time phone check
+  // Real-time phone check (Only if not from portal, or if user is editing)
   useEffect(() => {
-      handleVerifyPhone();
-  }, [clientPhone]);
+      if (!fromPortal || isEditingData) {
+          handleVerifyPhone();
+      }
+  }, [clientPhone, isEditingData]);
 
   const handleBooking = () => {
     if (selectedService && selectedProfessional && selectedDate && selectedTime && clientName && clientPhone) {
-      if (isNewClient) {
+      if (isNewClient || isEditingData) {
           saveClient({
               id: Math.random().toString(36).substr(2, 9),
               name: clientName,
@@ -186,61 +230,32 @@ export const PublicBooking: React.FC<{
       }
   };
 
-  const Header = (
-      <div className="flex items-center gap-3 px-4 py-3 bg-white border-b border-gray-100 shadow-sm z-30 relative">
-          {/* Seta de Voltar: SÓ aparece se estiver no meio do agendamento (Step > 0). 
-              Se for Step 0 (Capa do Salão), não tem botão, prendendo o usuário no Salão. */}
-          {step > 0 && step < 4 ? (
-              <button onClick={() => setStep(step - 1 as any)} className="p-2 -ml-2 text-gray-600 rounded-full active:bg-gray-100">
-                 <ChevronLeft className="w-6 h-6" />
-              </button>
-          ) : (
-              // Espaçador para manter alinhamento
-              <div className="w-10"></div>
-          )}
-          
-          {/* Lock Icon Logic: Only available in this header within the salon context */}
-          <button 
-             className="relative flex-shrink-0 group"
-             onClick={() => onAdminAccess(salon.id)}
-             title="Acesso do Proprietário"
-          >
-               <div className="w-12 h-12 bg-brand-100 rounded-full overflow-hidden border-2 border-white shadow-md">
-                   {salon.coverImage ? (
-                        <img src={salon.coverImage} className="w-full h-full object-cover" />
-                   ) : (
-                        <div className="w-full h-full flex items-center justify-center text-brand-600 font-bold text-lg">
-                            {salon.name[0]}
-                        </div>
-                   )}
-               </div>
-               
-               {/* Badge Cadeado Fixo e Visível - Z-Index Alto */}
-               <div className="absolute -bottom-1 -right-1 z-50">
-                   <div className="bg-white rounded-full p-0.5 shadow-lg border border-gray-100">
-                       <div className="bg-gray-900 p-1.5 rounded-full hover:bg-black transition-colors">
-                            <Lock className="w-3 h-3 text-white" />
-                       </div>
-                   </div>
-               </div>
-          </button>
-          
-          <div className="flex-1 min-w-0">
-               <h1 className="font-bold text-gray-900 truncate text-base leading-tight">{salon.name}</h1>
-               {selectedProfessional && step > 0 && step < 4 && (
-                   <div className="text-xs font-bold text-brand-600 flex items-center gap-1 animate-pulse">
-                       Agendando com {selectedProfessional.name}
-                   </div>
-               )}
-          </div>
-      </div>
-  );
-
-  return (
-    <AppShell
-        header={Header}
-        bottomNav={
-            // Unified Navigation: Persists through Step 0 (Profile) and Step 1/2/3 (Booking)
+  const renderBottomNav = () => {
+      if (fromPortal) {
+          // Portal Mode: Consistent with ClientPortal Dashboard
+          return (
+            <MobileNav>
+                <MobileNavItem 
+                    icon={<Home />} 
+                    label="Home" 
+                    onClick={onBack} // Returns to Dashboard
+                />
+                <MobileNavItem 
+                    icon={<Calendar />} 
+                    label="Agenda" 
+                    active={true}
+                    onClick={() => {}} 
+                />
+                <MobileNavItem 
+                    icon={<User />} 
+                    label="Perfil" 
+                    onClick={onBack} // Returns to Dashboard where profile is accessible
+                />
+            </MobileNav>
+          );
+      } else {
+          // Public Mode: Standalone navigation
+          return (
             <MobileNav>
                 <MobileNavItem 
                     icon={<Home />} 
@@ -267,14 +282,77 @@ export const PublicBooking: React.FC<{
                     onClick={() => { if(step === 0) setStep(1); }} 
                 />
             </MobileNav>
-        }
+          );
+      }
+  };
+
+  const Header = (
+      <div className="flex items-center gap-3 px-4 py-3 bg-white border-b border-gray-100 shadow-sm z-30 relative">
+          {/* Back Button Logic */}
+          {(step > 0 && step < 4 && !fromPortal) || (step > 1 && fromPortal) ? (
+              <button onClick={() => setStep(step - 1 as any)} className="p-2 -ml-2 text-gray-600 rounded-full active:bg-gray-100">
+                 <ChevronLeft className="w-6 h-6" />
+              </button>
+          ) : (
+              // Spacer or Back to Portal if applicable
+              fromPortal ? (
+                  <button onClick={onBack} className="p-2 -ml-2 text-gray-600 rounded-full active:bg-gray-100">
+                     <ChevronLeft className="w-6 h-6" />
+                  </button>
+              ) : (
+                  <div className="w-10"></div>
+              )
+          )}
+          
+          {/* Lock Icon Logic: Only available in this header within the salon context, hidden if in portal mode to avoid confusion */}
+          {!fromPortal && (
+              <button 
+                 className="relative flex-shrink-0 group"
+                 onClick={() => onAdminAccess(salon.id)}
+                 title="Acesso do Proprietário"
+              >
+                   <div className="w-12 h-12 bg-brand-100 rounded-full overflow-hidden border-2 border-white shadow-md">
+                       {salon.coverImage ? (
+                            <img src={salon.coverImage} className="w-full h-full object-cover" />
+                       ) : (
+                            <div className="w-full h-full flex items-center justify-center text-brand-600 font-bold text-lg">
+                                {salon.name[0]}
+                            </div>
+                       )}
+                   </div>
+                   
+                   <div className="absolute -bottom-1 -right-1 z-50">
+                       <div className="bg-white rounded-full p-0.5 shadow-lg border border-gray-100">
+                           <div className="bg-gray-900 p-1.5 rounded-full hover:bg-black transition-colors">
+                                <Lock className="w-3 h-3 text-white" />
+                           </div>
+                       </div>
+                   </div>
+              </button>
+          )}
+          
+          <div className="flex-1 min-w-0">
+               <h1 className="font-bold text-gray-900 truncate text-base leading-tight">{salon.name}</h1>
+               {fromPortal && <span className="text-xs text-brand-600 font-bold">Agendamento</span>}
+               {selectedProfessional && step > 0 && step < 4 && (
+                   <div className="text-xs font-bold text-brand-600 flex items-center gap-1 animate-pulse">
+                       Agendando com {selectedProfessional.name}
+                   </div>
+               )}
+          </div>
+      </div>
+  );
+
+  return (
+    <AppShell
+        header={Header}
+        bottomNav={renderBottomNav()}
     >
         <div className={`p-4 ${step === 0 ? 'pb-24' : 'pb-8'}`}>
             
             {/* Step 0: Salon Showcase / Profile */}
             {step === 0 && (
                 <div className="animate-in fade-in duration-500">
-                    
                     {clientView === 'home' && (
                         <div className="space-y-6">
                             {/* Cover Image */}
@@ -559,16 +637,33 @@ export const PublicBooking: React.FC<{
                      {selectedTime && (
                          <div className="animate-in fade-in slide-in-from-bottom-4">
                              <h2 className="text-xl font-bold text-gray-900 mb-2">Seus Dados</h2>
-                             <input 
-                                type="tel" 
-                                className="w-full border border-gray-200 rounded-xl px-4 py-3 bg-white outline-none mb-3"
-                                placeholder="Seu Telefone (DDD + Número)"
-                                value={clientPhone}
-                                onChange={(e) => { setClientPhone(e.target.value); setClientVerified(false); }}
-                            />
-                             {clientVerified && (
+                             
+                             {fromPortal && clientVerified && !isEditingData ? (
+                                 <div className="bg-white border border-gray-200 rounded-xl p-4 shadow-sm mb-4">
+                                     <div className="flex justify-between items-start mb-2">
+                                         <span className="text-sm font-bold text-gray-500 uppercase">Confirmar Dados</span>
+                                         <button onClick={() => setIsEditingData(true)} className="text-brand-600 text-xs font-bold flex items-center gap-1">
+                                             <Edit className="w-3 h-3" /> Editar
+                                         </button>
+                                     </div>
+                                     <div className="font-bold text-gray-900 text-lg">{clientName}</div>
+                                     <div className="text-gray-600">{clientPhone}</div>
+                                 </div>
+                             ) : (
+                                <>
+                                    <input 
+                                        type="tel" 
+                                        className="w-full border border-gray-200 rounded-xl px-4 py-3 bg-white outline-none mb-3"
+                                        placeholder="Seu Telefone (DDD + Número)"
+                                        value={clientPhone}
+                                        onChange={(e) => { setClientPhone(e.target.value); setClientVerified(false); }}
+                                    />
+                                </>
+                             )}
+
+                             {(clientVerified || (fromPortal && !isEditingData)) && (
                                  <div className="space-y-3">
-                                     {isNewClient ? (
+                                     {(isNewClient || isEditingData) ? (
                                         <>
                                             <input 
                                                 type="text" 
@@ -588,9 +683,11 @@ export const PublicBooking: React.FC<{
                                             />
                                         </>
                                      ) : (
-                                         <div className="text-sm text-green-600 bg-green-50 p-3 rounded-lg flex items-center gap-2">
-                                             <CheckCircle className="w-4 h-4" /> Olá, {clientName}!
-                                         </div>
+                                         !fromPortal && (
+                                            <div className="text-sm text-green-600 bg-green-50 p-3 rounded-lg flex items-center gap-2">
+                                                <CheckCircle className="w-4 h-4" /> Olá, {clientName}!
+                                            </div>
+                                         )
                                      )}
                                      
                                      <div className="bg-gray-50 p-4 rounded-xl mt-4 space-y-2">
@@ -610,9 +707,12 @@ export const PublicBooking: React.FC<{
                                          </div>
                                      </div>
 
-                                     <Button className="w-full py-4 text-lg font-bold shadow-xl shadow-brand-200" onClick={handleBooking}>
-                                         Confirmar Agendamento
-                                     </Button>
+                                     {/* Add ref for scroll targeting */}
+                                     <div ref={confirmBtnRef}>
+                                         <Button className="w-full py-4 text-lg font-bold shadow-xl shadow-brand-200" onClick={handleBooking}>
+                                             Confirmar Agendamento
+                                         </Button>
+                                     </div>
                                  </div>
                              )}
                          </div>
@@ -631,7 +731,11 @@ export const PublicBooking: React.FC<{
                     </p>
                     <div className="w-full max-w-xs space-y-3">
                          <Button className="w-full py-3" onClick={() => {
-                            setStep(0); setSelectedService(null); setSelectedProfessional(null); setSelectedDate(''); setSelectedTime(''); setCart([]); setClientView('home');
+                            if (fromPortal) {
+                                onBack();
+                            } else {
+                                setStep(0); setSelectedService(null); setSelectedProfessional(null); setSelectedDate(''); setSelectedTime(''); setCart([]); setClientView('home');
+                            }
                         }}>
                             Voltar ao Início
                         </Button>

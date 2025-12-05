@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { LucideIcon, Upload, X, QrCode, Globe, Instagram, Facebook, MessageCircle, Package, Target, Megaphone, AlertTriangle, Gift, ShoppingBag, Image, MapPin } from 'lucide-react';
+import { LucideIcon, Upload, X, QrCode, Globe, Instagram, Facebook, MessageCircle, Package, Target, Megaphone, AlertTriangle, Gift, ShoppingBag, Image, MapPin, History, CalendarCheck } from 'lucide-react';
 
 export const Button: React.FC<React.ButtonHTMLAttributes<HTMLButtonElement> & { variant?: 'primary' | 'secondary' | 'danger' | 'outline' }> = ({ className, variant = 'primary', ...props }) => {
   const baseStyle = "px-4 py-2 rounded-lg font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed";
@@ -170,4 +170,18 @@ export const MobileNavItem: React.FC<{
     <span className="text-[10px] font-medium leading-none">{label}</span>
   </button>
 );
-export { QrCode, Globe, Instagram, Facebook, MessageCircle, Package, Target, Megaphone, AlertTriangle, Gift, ShoppingBag, Image, MapPin };
+
+export const AgendeLogo: React.FC<{className?: string}> = ({className}) => (
+    <svg viewBox="0 0 100 100" className={className} fill="none" xmlns="http://www.w3.org/2000/svg">
+        {/* Main lowercase 'a' shape - Bold Circle + Vertical Bar */}
+        <path fillRule="evenodd" clipRule="evenodd" d="M65 35V80H55V72C52.613 74.5297 49.3377 76.5367 45.5 77.5651C41.6623 78.5935 37.4042 78.6052 33.5 77.6C29.5958 76.5948 26.1558 74.609 23.5 71.8C20.8442 68.991 19 65.45 19 61.5C19 57.55 20.8442 54.009 23.5 51.2C26.1558 48.391 29.5958 46.4052 33.5 45.4C37.4042 44.3948 41.6623 44.4065 45.5 45.4349C49.3377 46.4633 52.613 48.4703 55 51V38C55 35 57 35 65 35ZM55 61.5C55 55.701 50.5228 51 45 51C39.4772 51 35 55.701 35 61.5C35 67.299 39.4772 72 45 72C50.5228 72 55 67.299 55 61.5Z" fill="#e11d48"/>
+        
+        {/* Horizontal Cut */}
+        <rect x="15" y="58" width="55" height="5" fill="white" />
+
+        {/* Plus sign top right */}
+        <path d="M78 20V40M68 30H88" stroke="#e11d48" strokeWidth="6" strokeLinecap="round" strokeLinejoin="round"/>
+    </svg>
+);
+
+export { QrCode, Globe, Instagram, Facebook, MessageCircle, Package, Target, Megaphone, AlertTriangle, Gift, ShoppingBag, Image, MapPin, History, CalendarCheck };

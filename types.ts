@@ -36,7 +36,7 @@ export interface Professional {
   commissionRate: number; // Service Commission %
   productCommissionRate: number; // Product Commission %
   password?: string; // Simple auth for MVP
-  email?: string;
+  email: string; // Made mandatory for login
 }
 
 export interface Client {
@@ -97,6 +97,8 @@ export interface BlockedPeriod {
 export interface Salon {
   id: string;
   name: string;
+  ownerEmail?: string; // New field for login
+  password?: string; // New field for owner auth
   slug: string; // for url simulation
   description: string;
   plan: PlanType;
@@ -114,6 +116,7 @@ export interface Salon {
   closeTime?: string;
   blockedPeriods?: BlockedPeriod[];
   revenueGoal?: number; // New Financial Goal
+  allowClientCancellation?: boolean; // New Toggle
   // Social & About
   aboutUs?: string;
   socials?: {
@@ -122,6 +125,7 @@ export interface Salon {
       whatsapp?: string;
       website?: string;
   };
+  gallery?: string[];
   // Financial fields for SaaS
   subscriptionStatus: SubscriptionStatus;
   monthlyFee: number;
@@ -139,7 +143,8 @@ export interface StoreContextType {
   setCurrentSalonId: (id: string | null) => void;
   updateSalon: (salon: Salon) => void;
   addAppointment: (salonId: string, appointment: Appointment) => void;
-  createSalon: (name: string, plan: PlanType, couponCode?: string) => void;
+  cancelAppointment: (salonId: string, appointmentId: string) => void; // New Action
+  createSalon: (name: string, plan: PlanType, address: string, ownerName?: string, email?: string, password?: string, couponCode?: string) => void;
   addBlockedPeriod: (salonId: string, blockedPeriod: BlockedPeriod) => void;
   saveClient: (client: Client) => void;
   getClientByPhone: (phone: string) => Client | undefined;

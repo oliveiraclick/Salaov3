@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { Button } from '../components/UI';
 import { ChevronLeft, Shield } from 'lucide-react';
@@ -26,7 +25,7 @@ export const PrivacyPolicy: React.FC<{ onBack: () => void }> = ({ onBack }) => {
 
         <section className="space-y-4">
             <p className="text-lg text-gray-600">
-                A sua privacidade é importante para nós. Esta política explica como o <strong>Salão Online</strong> coleta, usa e protege suas informações pessoais.
+                A sua privacidade é importante para nós. Esta política explica como o <strong>Agende +</strong> coleta, usa e protege suas informações pessoais.
             </p>
         </section>
 
@@ -35,7 +34,7 @@ export const PrivacyPolicy: React.FC<{ onBack: () => void }> = ({ onBack }) => {
             <p>Coletamos informações necessárias para o funcionamento do serviço, incluindo:</p>
             <ul className="list-disc pl-5 space-y-2">
                 <li><strong>Dados de Cadastro:</strong> Nome, e-mail, telefone e data de nascimento.</li>
-                <li><strong>Dados do Salão:</strong> Endereço, serviços oferecidos, preços e horários.</li>
+                <li><strong>Dados da Empresa:</strong> Endereço, serviços oferecidos, preços e horários.</li>
                 <li><strong>Dados de Agendamento:</strong> Histórico de serviços, datas e preferências.</li>
                 <li><strong>Dados Financeiros:</strong> Informações de transações para processamento de pagamentos (não armazenamos dados completos de cartão de crédito).</li>
             </ul>
@@ -58,7 +57,7 @@ export const PrivacyPolicy: React.FC<{ onBack: () => void }> = ({ onBack }) => {
                 Não vendemos seus dados pessoais. Compartilhamos informações apenas nas seguintes situações:
             </p>
             <ul className="list-disc pl-5 space-y-2">
-                <li><strong>Com o Salão/Profissional:</strong> Para que o serviço agendado possa ser realizado.</li>
+                <li><strong>Com a Empresa/Profissional:</strong> Para que o serviço agendado possa ser realizado.</li>
                 <li><strong>Obrigações Legais:</strong> Quando exigido por lei ou ordem judicial.</li>
             </ul>
         </section>

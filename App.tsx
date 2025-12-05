@@ -4,74 +4,77 @@ import { StoreProvider } from './store';
 import { SuperAdmin } from './modules/SuperAdmin';
 import { TenantAdmin } from './modules/TenantAdmin';
 import { PublicBooking } from './modules/PublicBooking';
-import { SaaSLandingPage } from './modules/SaaSLandingPage';
 import { SalonDirectory } from './modules/SalonDirectory';
 import { Login } from './modules/Login';
+import { Register } from './modules/Register';
 import { ProfessionalPanel } from './modules/ProfessionalPanel';
 import { HowItWorks } from './modules/HowItWorks';
 import { TermsOfUse } from './modules/TermsOfUse';
 import { PrivacyPolicy } from './modules/PrivacyPolicy';
+import { ClientPortal } from './modules/ClientPortal';
 
 type ViewState = 
-  | { type: 'landing' }
-  | { type: 'login'; context: 'admin' | 'tenant'; salonId?: string }
+  | { type: 'register' }
+  | { type: 'login'; context: 'admin' | 'tenant'; salonId?: string; prefilledEmail?: string }
   | { type: 'directory' }
   | { type: 'super-admin' }
   | { type: 'tenant'; salonId: string }
   | { type: 'professional'; salonId: string; professionalId: string }
-  | { type: 'public'; salonId: string; professionalId?: string }
+  | { type: 'public'; salonId: string; professionalId?: string; fromPortal?: boolean; clientPhone?: string }
+  | { type: 'client-portal'; clientPhone: string }
   | { type: 'how-it-works' }
   | { type: 'terms' }
   | { type: 'privacy' };
 
 const AppContent: React.FC = () => {
-  const [view, setView] = useState<ViewState>({ type: 'landing' });
+  // START AT REGISTER
+  const [view, setView] = useState<ViewState>({ type: 'register' });
 
   const navigate = (newView: 'tenant' | 'public', salonId: string) => {
     setView({ type: newView, salonId });
   };
 
   const goHome = () => {
-      setView({ type: 'landing' });
+      // Volta para o login
+      setView({ type: 'login', context: 'tenant' });
   };
   
-  const goLoginAdmin = () => {
-      setView({ type: 'login', context: 'admin' });
+  const goRegister = () => {
+      setView({ type: 'register' });
   };
 
   const goDirectory = () => setView({ type: 'directory' });
-  
+  // Although Landing is removed, these pages might still be accessible from Footer/Login if linked, 
+  // but for now we keep them reachable via direct state change if needed, or remove completely if external.
+  // Assuming Terms/Privacy might still be needed inside the app.
   const goHowItWorks = () => setView({ type: 'how-it-works' });
   const goTerms = () => setView({ type: 'terms' });
   const goPrivacy = () => setView({ type: 'privacy' });
 
-  // Special flow for Secret Admin Access from Public Page (Tenant Context)
   const handleSecretTenantAccess = (salonId: string) => {
       setView({ type: 'login', context: 'tenant', salonId });
   };
 
   switch (view.type) {
-    case 'landing':
+    case 'register':
       return (
-        <SaaSLandingPage 
-            onEnterSystem={goLoginAdmin} 
-            onViewDirectory={goDirectory} 
-            onHowItWorks={goHowItWorks} 
-            onViewTerms={goTerms}
-            onViewPrivacy={goPrivacy}
+        <Register 
+            onLoginRedirect={goHome}
+            onSuccess={(email) => setView({ type: 'login', context: 'tenant', prefilledEmail: email })}
         />
       );
     case 'how-it-works':
-      return <HowItWorks onBack={goHome} />;
+      return <HowItWorks onBack={goRegister} />;
     case 'terms':
-      return <TermsOfUse onBack={goHome} />;
+      return <TermsOfUse onBack={goRegister} />;
     case 'privacy':
-      return <PrivacyPolicy onBack={goHome} />;
+      return <PrivacyPolicy onBack={goRegister} />;
     case 'login':
       return (
         <Login 
             context={view.context}
             salonId={view.salonId}
+            prefilledEmail={view.prefilledEmail}
             onLogin={(id, isPro, proId) => {
                 if (view.context === 'tenant' && id) {
                     if (isPro && proId) {
@@ -83,7 +86,11 @@ const AppContent: React.FC = () => {
                     setView({ type: 'super-admin' });
                 }
             }} 
-            onBack={goHome}
+            onClientLogin={(phone) => {
+                setView({ type: 'client-portal', clientPhone: phone });
+            }}
+            onBack={goRegister}
+            onRegister={goRegister}
         />
       );
     case 'directory':
@@ -92,6 +99,14 @@ const AppContent: React.FC = () => {
           onSelectSalon={(id) => navigate('public', id)} 
           onAdminAccess={handleSecretTenantAccess}
       />;
+    case 'client-portal':
+      return (
+        <ClientPortal 
+            clientPhone={view.clientPhone}
+            onSelectSalon={(id) => setView({ type: 'public', salonId: id, fromPortal: true, clientPhone: view.clientPhone })}
+            onLogout={goHome}
+        />
+      );
     case 'super-admin':
       return <SuperAdmin onNavigate={navigate} onLogout={goHome} />;
     case 'tenant':
@@ -102,7 +117,16 @@ const AppContent: React.FC = () => {
       return <PublicBooking 
         salonId={view.salonId} 
         professionalId={view.professionalId}
-        onBack={() => setView({ type: 'directory' })} 
+        fromPortal={view.fromPortal}
+        clientPhone={view.clientPhone}
+        onBack={() => {
+            if (view.fromPortal && view.clientPhone) {
+                // Return to client portal correctly
+                setView({ type: 'client-portal', clientPhone: view.clientPhone }); 
+            } else {
+                setView({ type: 'directory' });
+            }
+        }} 
         onAdminAccess={handleSecretTenantAccess}
       />;
     default:

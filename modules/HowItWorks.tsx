@@ -1,8 +1,7 @@
-
 import React from 'react';
 import { Button } from '../components/UI';
 import { 
-  LayoutDashboard, Scissors, Calendar, User, 
+  LayoutDashboard, CalendarCheck, Calendar, User, 
   ShoppingBag, TrendingUp, ShieldCheck, QrCode, 
   MessageCircle, ChevronLeft, ArrowRight, Smartphone,
   Wallet, Target, Package
@@ -19,9 +18,9 @@ export const HowItWorks: React.FC<{ onBack: () => void }> = ({ onBack }) => {
           </Button>
           <div className="flex items-center gap-2 cursor-pointer" onClick={onBack}>
             <div className="bg-brand-600 p-1.5 rounded-lg">
-               <Scissors className="w-5 h-5 text-white" />
+               <CalendarCheck className="w-5 h-5 text-white" />
             </div>
-            <span className="font-bold text-lg text-gray-900 tracking-tight">Salão Online</span>
+            <span className="font-bold text-lg text-gray-900 tracking-tight">Agende +</span>
           </div>
         </div>
       </nav>
@@ -30,13 +29,13 @@ export const HowItWorks: React.FC<{ onBack: () => void }> = ({ onBack }) => {
       <div className="bg-brand-600 text-white py-16 px-4 text-center">
         <h1 className="text-3xl md:text-5xl font-extrabold mb-4 tracking-tight">Como Funciona?</h1>
         <p className="text-brand-100 max-w-xl mx-auto text-lg">
-          Entenda como nosso ecossistema conecta proprietários, profissionais e clientes em uma única plataforma inteligente.
+          O ecossistema completo para conectar empresas de serviços, profissionais e clientes em uma única plataforma.
         </p>
       </div>
 
       <div className="max-w-4xl mx-auto px-4 -mt-8 space-y-12">
         
-        {/* Módulo 1: Gestão do Proprietário */}
+        {/* Módulo 1: Gestão da Empresa */}
         <div className="animate-in slide-in-from-bottom-4 duration-500">
             <div className="bg-white rounded-2xl shadow-xl p-8 border border-gray-100 relative overflow-hidden">
                 <div className="absolute top-0 right-0 p-4 opacity-10">
@@ -49,7 +48,7 @@ export const HowItWorks: React.FC<{ onBack: () => void }> = ({ onBack }) => {
                             <ShieldCheck className="w-6 h-6" />
                         </div>
                         <div>
-                            <h2 className="text-2xl font-bold text-gray-900">1. Gestão do Proprietário</h2>
+                            <h2 className="text-2xl font-bold text-gray-900">1. Gestão da Empresa</h2>
                             <p className="text-gray-500 text-sm">O Painel Administrativo do Negócio</p>
                         </div>
                     </div>
@@ -57,7 +56,7 @@ export const HowItWorks: React.FC<{ onBack: () => void }> = ({ onBack }) => {
                     <div className="grid md:grid-cols-2 gap-8">
                         <div className="space-y-4">
                             <p className="text-gray-600 leading-relaxed">
-                                O proprietário do salão tem visão 360º do negócio. É aqui que as regras são definidas e o lucro é monitorado em tempo real.
+                                O proprietário tem visão 360º do negócio. Ideal para Salões, Clínicas, Lava Rápidos e Pet Shops.
                             </p>
                             <ul className="space-y-3">
                                 <li className="flex items-start gap-3">
@@ -115,7 +114,7 @@ export const HowItWorks: React.FC<{ onBack: () => void }> = ({ onBack }) => {
                 <div className="relative z-10">
                     <div className="flex items-center gap-3 mb-6">
                         <div className="w-12 h-12 bg-blue-100 rounded-xl flex items-center justify-center text-blue-600">
-                            <Scissors className="w-6 h-6" />
+                            <CalendarCheck className="w-6 h-6" />
                         </div>
                         <div>
                             <h2 className="text-2xl font-bold text-gray-900">2. Painel do Profissional</h2>
@@ -139,7 +138,7 @@ export const HowItWorks: React.FC<{ onBack: () => void }> = ({ onBack }) => {
                         </div>
                         <div className="order-1 md:order-2 space-y-4">
                             <p className="text-gray-600 leading-relaxed">
-                                Cada barbeiro ou manicure tem seu próprio acesso. Eles gerenciam seu trabalho sem acessar os dados financeiros sensíveis do salão.
+                                Cada colaborador tem seu próprio acesso. Eles gerenciam seu trabalho sem acessar os dados financeiros sensíveis da empresa.
                             </p>
                             <ul className="space-y-3">
                                 <li className="flex items-start gap-3">
@@ -197,7 +196,7 @@ export const HowItWorks: React.FC<{ onBack: () => void }> = ({ onBack }) => {
                                 <li className="flex items-start gap-3">
                                     <div className="mt-1 bg-brand-100 p-1 rounded-full"><Smartphone className="w-3 h-3 text-brand-600" /></div>
                                     <div>
-                                        <span className="font-bold text-gray-800 text-sm block">Vitrine do Salão</span>
+                                        <span className="font-bold text-gray-800 text-sm block">Vitrine do Negócio</span>
                                         <span className="text-xs text-gray-500">Perfil completo com fotos, "Sobre Nós", localização e links diretos para redes sociais.</span>
                                     </div>
                                 </li>
@@ -205,7 +204,7 @@ export const HowItWorks: React.FC<{ onBack: () => void }> = ({ onBack }) => {
                                     <div className="mt-1 bg-yellow-100 p-1 rounded-full"><ShoppingBag className="w-3 h-3 text-yellow-600" /></div>
                                     <div>
                                         <span className="font-bold text-gray-800 text-sm block">Loja Integrada (Upsell)</span>
-                                        <span className="text-xs text-gray-500">Ao agendar um corte, o cliente pode comprar uma pomada ou shampoo e pagar tudo junto.</span>
+                                        <span className="text-xs text-gray-500">Ao agendar um serviço, o cliente pode comprar um produto e pagar tudo junto.</span>
                                     </div>
                                 </li>
                                 <li className="flex items-start gap-3">

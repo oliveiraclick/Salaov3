@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { useStore } from '../store';
 import { Badge, AppShell, MobileNav, MobileNavItem } from '../components/UI';
@@ -13,11 +12,12 @@ export const SalonDirectory: React.FC<{
   const [searchTerm, setSearchTerm] = useState('');
   const [activeFilter, setActiveFilter] = useState('Todos');
 
-  const filters = ['Todos', 'Barbearia', 'Salão', 'Manicure', 'Spa'];
+  const filters = ['Todos', 'Barbearia', 'Salão', 'Manicure', 'Spa', 'Automotivo'];
 
   const getCategory = (name: string) => {
     if (name.toLowerCase().includes('barber') || name.toLowerCase().includes('barbearia')) return 'Barbearia';
     if (name.toLowerCase().includes('studio') || name.toLowerCase().includes('beleza')) return 'Salão';
+    if (name.toLowerCase().includes('lava') || name.toLowerCase().includes('automotivo')) return 'Automotivo';
     return 'Salão';
   };
 
@@ -30,7 +30,7 @@ export const SalonDirectory: React.FC<{
 
   const Header = (
       <div className="px-4 py-2 bg-white">
-        <div className="font-bold text-lg text-brand-600 uppercase tracking-tight mb-2 pt-2">Salão Online</div>
+        <div className="font-bold text-lg text-brand-600 uppercase tracking-tight mb-2 pt-2">Agende +</div>
         <div className="relative">
             <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                 <Search className="h-4 w-4 text-gray-400" />
@@ -38,7 +38,7 @@ export const SalonDirectory: React.FC<{
             <input 
                 type="text"
                 className="block w-full pl-9 pr-3 py-2.5 border border-gray-200 rounded-xl bg-gray-50 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
-                placeholder="Buscar salão ou serviço..."
+                placeholder="Buscar local ou serviço..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
             />
@@ -69,7 +69,6 @@ export const SalonDirectory: React.FC<{
         bottomNav={
             <MobileNav>
                 <MobileNavItem icon={<Home />} label="Início" active={true} onClick={() => {}} />
-                {/* Mock navigation for demo purposes */}
                 <MobileNavItem icon={<Star />} label="Favoritos" onClick={() => {}} />
                 <MobileNavItem icon={<User />} label="Perfil/Login" onClick={onBack} />
             </MobileNav>
@@ -77,7 +76,7 @@ export const SalonDirectory: React.FC<{
     >
         <div className="p-4 space-y-4">
             {filteredSalons.length === 0 && (
-                <div className="text-center py-10 text-gray-500">Nenhum salão encontrado.</div>
+                <div className="text-center py-10 text-gray-500">Nenhum estabelecimento encontrado.</div>
             )}
 
             {filteredSalons.map(salon => (
@@ -93,7 +92,7 @@ export const SalonDirectory: React.FC<{
                             alt={salon.name}
                         />
                          <div className="absolute bottom-2 left-2 bg-white/90 px-2 py-0.5 rounded text-[10px] font-bold text-gray-800 uppercase">
-                            {salon.category || 'Salão'}
+                            {salon.category || 'Estabelecimento'}
                         </div>
                     </div>
                     <div className="p-4">

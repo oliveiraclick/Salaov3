@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { Button } from '../components/UI';
 import { ChevronLeft, FileText } from 'lucide-react';
@@ -27,7 +26,7 @@ export const TermsOfUse: React.FC<{ onBack: () => void }> = ({ onBack }) => {
         <section className="space-y-4">
             <h2 className="text-xl font-bold text-gray-900">1. Aceitação dos Termos</h2>
             <p>
-                Ao acessar e utilizar a plataforma <strong>Salão Online</strong>, você concorda integralmente com estes Termos de Uso. 
+                Ao acessar e utilizar a plataforma <strong>Agende +</strong>, você concorda integralmente com estes Termos de Uso. 
                 Se você não concordar com qualquer parte destes termos, você não deve utilizar nosso serviço.
             </p>
         </section>
@@ -35,8 +34,8 @@ export const TermsOfUse: React.FC<{ onBack: () => void }> = ({ onBack }) => {
         <section className="space-y-4">
             <h2 className="text-xl font-bold text-gray-900">2. Descrição do Serviço</h2>
             <p>
-                O Salão Online é uma plataforma SaaS (Software as a Service) que oferece ferramentas de gestão para salões de beleza, 
-                barbearias e profissionais de estética. Nossos serviços incluem agendamento online, gestão financeira, controle de estoque 
+                O Agende + é uma plataforma SaaS (Software as a Service) que oferece ferramentas de gestão para empresas de serviços 
+                (salões, barbearias, lava rápidos, clínicas). Nossos serviços incluem agendamento online, gestão financeira, controle de estoque 
                 e ferramentas de marketing.
             </p>
         </section>
@@ -47,14 +46,14 @@ export const TermsOfUse: React.FC<{ onBack: () => void }> = ({ onBack }) => {
                 <li>Você é responsável por manter a confidencialidade de suas credenciais de acesso.</li>
                 <li>Você concorda em fornecer informações verdadeiras, exatas e completas durante o cadastro.</li>
                 <li>É proibido utilizar a plataforma para atividades ilegais ou não autorizadas.</li>
-                <li>O Proprietário do salão é o único responsável pela qualidade dos serviços prestados aos seus clientes finais.</li>
+                <li>O Proprietário da empresa é o único responsável pela qualidade dos serviços prestados aos seus clientes finais.</li>
             </ul>
         </section>
 
         <section className="space-y-4">
             <h2 className="text-xl font-bold text-gray-900">4. Pagamentos e Assinaturas</h2>
             <p>
-                O acesso às funcionalidades "Profissional" e "Redes" requer o pagamento de uma assinatura mensal. 
+                O acesso às funcionalidades avançadas requer o pagamento de uma assinatura mensal. 
                 O não pagamento da mensalidade pode resultar na suspensão ou cancelamento do acesso à plataforma.
                 Os valores podem ser reajustados mediante aviso prévio.
             </p>
@@ -63,7 +62,7 @@ export const TermsOfUse: React.FC<{ onBack: () => void }> = ({ onBack }) => {
         <section className="space-y-4">
             <h2 className="text-xl font-bold text-gray-900">5. Propriedade Intelectual</h2>
             <p>
-                Todo o conteúdo, design, código e software da plataforma Salão Online são de propriedade exclusiva da nossa empresa 
+                Todo o conteúdo, design, código e software da plataforma Agende + são de propriedade exclusiva da nossa empresa 
                 e estão protegidos pelas leis de direitos autorais e propriedade intelectual.
             </p>
         </section>
@@ -71,11 +70,11 @@ export const TermsOfUse: React.FC<{ onBack: () => void }> = ({ onBack }) => {
         <section className="space-y-4">
             <h2 className="text-xl font-bold text-gray-900">6. Limitação de Responsabilidade</h2>
             <p>
-                O Salão Online atua como intermediário tecnológico. Não nos responsabilizamos por:
+                O Agende + atua como intermediário tecnológico. Não nos responsabilizamos por:
             </p>
             <ul className="list-disc pl-5 space-y-2">
                 <li>Cancelamentos de agendamentos por parte dos clientes ou profissionais.</li>
-                <li>Insatisfação com os serviços estéticos prestados pelos salões cadastrados.</li>
+                <li>Insatisfação com os serviços prestados pelas empresas cadastradas.</li>
                 <li>Instabilidades temporárias no sistema decorrentes de manutenção ou falhas de terceiros.</li>
             </ul>
         </section>
