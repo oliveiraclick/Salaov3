@@ -54,7 +54,8 @@ export const Register: React.FC<{
       {/* Header */}
       <div className="sm:mx-auto sm:w-full sm:max-w-md my-auto">
         <div className="flex justify-center mb-6">
-            <div className="bg-brand-600 p-3 rounded-2xl shadow-xl shadow-brand-500/20 animate-in zoom-in duration-500">
+            {/* Removed shadow-xl shadow-brand-500/20 */}
+            <div className="bg-brand-600 p-3 rounded-2xl animate-in zoom-in duration-500">
                 <CalendarCheck className="w-10 h-10 text-white" />
             </div>
         </div>

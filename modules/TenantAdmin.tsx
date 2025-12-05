@@ -134,7 +134,6 @@ export const TenantAdmin: React.FC<{ salonId: string; onBack: () => void }> = ({
   };
 
   const handleSaveService = () => {
-    // ... existing handleSaveService ...
     if (!newService.name || !newService.price) return;
     const service: Service = {
       id: Math.random().toString(36).substr(2, 9),
@@ -149,7 +148,6 @@ export const TenantAdmin: React.FC<{ salonId: string; onBack: () => void }> = ({
   };
 
   const handleSavePro = () => {
-    // ... existing handleSavePro ...
     if (!newPro.name || !newPro.email) {
         alert("Preencha nome e e-mail.");
         return;
@@ -214,7 +212,6 @@ export const TenantAdmin: React.FC<{ salonId: string; onBack: () => void }> = ({
   };
 
   const handleSaveAppt = () => {
-    // ... existing handleSaveAppt ...
     if (!newAppt.clientName || !newAppt.serviceId || !newAppt.date || !newAppt.time) return;
     const service = salon.services.find(s => s.id === newAppt.serviceId);
     if (!service) return;
@@ -237,7 +234,6 @@ export const TenantAdmin: React.FC<{ salonId: string; onBack: () => void }> = ({
   };
 
   const handleSaveProduct = () => {
-      // ... existing handleSaveProduct ...
       if(!newProduct.name || !newProduct.quantity) return;
       addProduct(salon.id, {
           id: Math.random().toString(36).substr(2,9),
@@ -268,7 +264,6 @@ export const TenantAdmin: React.FC<{ salonId: string; onBack: () => void }> = ({
   const profitData = calculateProfit();
 
   const handleAddTransaction = () => {
-      // ... existing handleAddTransaction ...
       if(!newTrans.description || !newTrans.amount) return;
       
       const installments = newTrans.method === 'credit_split' ? parseInt(newTrans.installments) : 1;
@@ -319,7 +314,6 @@ export const TenantAdmin: React.FC<{ salonId: string; onBack: () => void }> = ({
   const renderContent = () => {
     switch(activeTab) {
       case 'dashboard':
-        // ... (keep existing dashboard render)
         return (
           <div className="space-y-4">
             <Card className="bg-gradient-to-r from-gray-900 to-gray-800 text-white border-0 overflow-visible relative">
@@ -429,7 +423,6 @@ export const TenantAdmin: React.FC<{ salonId: string; onBack: () => void }> = ({
         );
 
       case 'inventory':
-          // ... (keep existing inventory render)
           return (
               <div className="space-y-4">
                   <div className="flex justify-between items-center">
@@ -534,7 +527,6 @@ export const TenantAdmin: React.FC<{ salonId: string; onBack: () => void }> = ({
           );
 
       case 'finance':
-        // ... (keep existing finance render)
         return (
             <div className="space-y-6">
                 <div className="grid grid-cols-3 gap-2">
@@ -669,7 +661,6 @@ export const TenantAdmin: React.FC<{ salonId: string; onBack: () => void }> = ({
         );
 
       case 'agenda':
-        // ... (keep existing agenda render)
         return (
            <div className="space-y-4">
              <Button className="w-full" onClick={() => setIsAddingAppt(!isAddingAppt)}>
@@ -761,7 +752,6 @@ export const TenantAdmin: React.FC<{ salonId: string; onBack: () => void }> = ({
         );
       
       case 'team':
-        // ... (keep existing team render)
         return (
             <div className="space-y-4">
                  <div className="grid grid-cols-2 gap-4">
@@ -849,7 +839,6 @@ export const TenantAdmin: React.FC<{ salonId: string; onBack: () => void }> = ({
         )
 
        case 'services':
-        // ... (keep existing services render)
         return (
             <div className="space-y-4">
                  <div className="bg-white rounded-xl border border-gray-200 overflow-hidden divide-y divide-gray-100">

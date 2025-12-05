@@ -171,7 +171,7 @@ export const ClientPortal: React.FC<{
                   </div>
               </div>
 
-              {/* Botão de Ação */}
+              {/* Botão de Ação - MOVIDO PARA CÁ */}
               <div className="pt-2">
                   <Button className="w-full py-4 text-lg font-bold shadow-xl shadow-brand-200" onClick={handleAgendaClick}>
                       Agendar Agora

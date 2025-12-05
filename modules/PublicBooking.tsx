@@ -102,7 +102,6 @@ export const PublicBooking: React.FC<{
       
       const now = new Date();
       // Safe string comparison for local date to avoid timezone issues
-      // Get current date in YYYY-MM-DD format based on user's local time
       const year = now.getFullYear();
       const month = String(now.getMonth() + 1).padStart(2, '0');
       const day = String(now.getDate()).padStart(2, '0');
