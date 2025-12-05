@@ -1,5 +1,4 @@
 
-// ... existing imports ...
 import React, { useState } from 'react';
 import { useStore } from '../store';
 import { Salon, Service, Professional, Transaction, TransactionType, PaymentMethod, Product } from '../types';
@@ -9,13 +8,12 @@ import {
   LayoutDashboard, Calendar, Users, Scissors, DollarSign, Settings, 
   Sparkles, Lock, LogOut, Save, Plus, X, Check, Clock, CreditCard, Ticket,
   TrendingUp, TrendingDown, Wallet, Edit, Banknote, QrCode,
-  Target, Package, Megaphone, Gift, AlertTriangle, MessageCircle, ShoppingBag, Trash2
+  Target, Package, Megaphone, Gift, AlertTriangle, MessageCircle, ShoppingBag, Trash2, CalendarRange, Ban
 } from 'lucide-react';
 import { generateSalonDescription } from '../services/geminiService';
 
 export const TenantAdmin: React.FC<{ salonId: string; onBack: () => void }> = ({ salonId, onBack }) => {
-  // ... existing component logic ...
-  const { salons, clients, updateSalon, addAppointment, addBlockedPeriod, addTransaction, addProduct, updateProduct } = useStore();
+  const { salons, clients, updateSalon, addAppointment, addBlockedPeriod, addTransaction, addProduct, updateProduct, removeBlockedPeriod } = useStore();
   const salon = salons.find(s => s.id === salonId);
   const [activeTab, setActiveTab] = useState<'dashboard' | 'agenda' | 'inventory' | 'team' | 'finance' | 'settings'>('dashboard');
   const [isGeneratingAi, setIsGeneratingAi] = useState(false);
@@ -41,11 +39,15 @@ export const TenantAdmin: React.FC<{ salonId: string; onBack: () => void }> = ({
       description: string; amount: string; type: TransactionType; category: string; method: PaymentMethod; date: string; installments: string;
   }>({ description: '', amount: '', type: 'expense', category: 'Despesas Gerais', method: 'cash', date: new Date().toISOString().split('T')[0], installments: '1' });
   const [isAddingTrans, setIsAddingTrans] = useState(false);
+  const [financePeriod, setFinancePeriod] = useState<'today' | 'month'>('month');
 
   // Block periods
   const [blockType, setBlockType] = useState<'salon' | 'professional'>('salon');
   const [blockDate, setBlockDate] = useState('');
   const [blockProId, setBlockProId] = useState('');
+  const [blockRange, setBlockRange] = useState({ start: '', end: '' });
+  const [blockMode, setBlockMode] = useState<'date' | 'time'>('date');
+  const [blockTime, setBlockTime] = useState({ start: '', end: '' });
 
   // QR Code
   const [qrModalOpen, setQrModalOpen] = useState(false);
@@ -56,15 +58,90 @@ export const TenantAdmin: React.FC<{ salonId: string; onBack: () => void }> = ({
   // UNLOCK ALL FEATURES FOR EVERYONE
   const isPro = true; 
   
+  // --- DASHBOARD CALCULATIONS ---
+  const revenueGoal = salon.revenueGoal || 5000;
+  // Calculate daily and weekly goals (Approximation: 26 working days, 4 weeks)
+  const dailyGoal = revenueGoal / 26; 
+  const weeklyGoal = revenueGoal / 4; 
+
+  // Helpers for date checking
+  const isToday = (dateStr: string) => {
+      const d = new Date(dateStr);
+      const now = new Date();
+      return d.getDate() === now.getDate() && d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
+  };
+
+  const isThisWeek = (dateStr: string) => {
+      const d = new Date(dateStr);
+      const now = new Date();
+      const diff = Math.abs(now.getTime() - d.getTime());
+      return diff < (7 * 24 * 60 * 60 * 1000);
+  };
+
+  const isThisMonth = (dateStr: string) => {
+      const d = new Date(dateStr);
+      const now = new Date();
+      return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
+  };
+
+  // --- GLOBAL SALON METRICS ---
+  const salonMetrics = {
+      today: salon.appointments.filter(a => a.status === 'completed' && isToday(a.date)).reduce((acc, curr) => acc + curr.price, 0),
+      weekly: salon.appointments.filter(a => a.status === 'completed' && isThisWeek(a.date)).reduce((acc, curr) => acc + curr.price, 0),
+      monthly: salon.appointments.filter(a => a.status === 'completed' && isThisMonth(a.date)).reduce((acc, curr) => acc + curr.price, 0),
+  };
+
+  const salonProgress = {
+      today: Math.min((salonMetrics.today / dailyGoal) * 100, 100),
+      weekly: Math.min((salonMetrics.weekly / weeklyGoal) * 100, 100),
+      monthly: Math.min((salonMetrics.monthly / revenueGoal) * 100, 100),
+  };
+
+  // Define totalSales (Lifetime revenue from completed appointments)
   const totalSales = salon.appointments
     .filter(a => a.status === 'completed')
-    .reduce((acc, curr) => acc + curr.price, 0);
+    .reduce((acc, curr) => {
+      const productsTotal = curr.products ? curr.products.reduce((sum, p) => sum + (p.salePrice || 0), 0) : 0;
+      return acc + curr.price + productsTotal;
+    }, 0);
 
-  const totalIncome = salon.transactions
+  // --- OWNER PERSONAL METRICS (If Owner is also a Professional) ---
+  const ownerProProfile = salon.professionals.find(p => p.email === salon.ownerEmail);
+  const isOwnerPro = !!ownerProProfile;
+  
+  const ownerMetrics = ownerProProfile ? {
+      today: salon.appointments.filter(a => a.professionalId === ownerProProfile.id && a.status === 'completed' && isToday(a.date)).reduce((acc, curr) => acc + curr.price, 0),
+      weekly: salon.appointments.filter(a => a.professionalId === ownerProProfile.id && a.status === 'completed' && isThisWeek(a.date)).reduce((acc, curr) => acc + curr.price, 0),
+      monthly: salon.appointments.filter(a => a.professionalId === ownerProProfile.id && a.status === 'completed' && isThisMonth(a.date)).reduce((acc, curr) => acc + curr.price, 0),
+  } : null;
+
+  // Personal goal can be defined as a % of the total goal or a fixed value. 
+  // For MVP, let's assume the owner wants to contribute at least 30% of the revenue personally if they work.
+  const personalGoalShare = 0.3; 
+  const ownerProgress = ownerMetrics ? {
+      today: Math.min((ownerMetrics.today / (dailyGoal * personalGoalShare)) * 100, 100),
+      weekly: Math.min((ownerMetrics.weekly / (weeklyGoal * personalGoalShare)) * 100, 100),
+      monthly: Math.min((ownerMetrics.monthly / (revenueGoal * personalGoalShare)) * 100, 100),
+  } : null;
+
+  // Filter transactions based on period for Finance Tab
+  const filterDate = new Date();
+  const transactionFilter = (t: Transaction) => {
+      const tDate = new Date(t.date);
+      if (financePeriod === 'today') {
+          return tDate.getDate() === filterDate.getDate() && tDate.getMonth() === filterDate.getMonth() && tDate.getFullYear() === filterDate.getFullYear();
+      } else {
+          return tDate.getMonth() === filterDate.getMonth() && tDate.getFullYear() === filterDate.getFullYear();
+      }
+  };
+
+  const filteredTransactions = salon.transactions.filter(transactionFilter);
+
+  const totalIncome = filteredTransactions
     .filter(t => t.type === 'income')
     .reduce((acc, t) => acc + t.amount, 0);
 
-  const totalExpense = salon.transactions
+  const totalExpense = filteredTransactions
     .filter(t => t.type === 'expense')
     .reduce((acc, t) => acc + t.amount, 0);
 
@@ -74,10 +151,6 @@ export const TenantAdmin: React.FC<{ salonId: string; onBack: () => void }> = ({
     name: s.name,
     count: salon.appointments.filter(a => a.serviceId === s.id).length
   })).sort((a, b) => b.count - a.count).slice(0, 5);
-
-  // ... rest of dashboard logic ...
-  const revenueGoal = salon.revenueGoal || 5000;
-  const progressPercent = Math.min((totalSales / revenueGoal) * 100, 100);
 
   const today = new Date();
   const birthdaysToday = clients.filter(c => {
@@ -153,15 +226,15 @@ export const TenantAdmin: React.FC<{ salonId: string; onBack: () => void }> = ({
         return;
     }
     
+    // Validate Email Uniqueness (Simple check)
     const emailExists = salons.some(s => 
         s.id !== salon.id && 
         s.professionals.some(p => p.email === newPro.email) 
     );
-    
     const emailExistsInCurrent = salon.professionals.some(p => p.email === newPro.email && p.id !== editingProId);
 
     if (emailExists || emailExistsInCurrent) {
-        alert("Este e-mail já está em uso por outro profissional no sistema.");
+        alert("Este e-mail já está em uso por outro profissional.");
         return;
     }
     
@@ -197,6 +270,31 @@ export const TenantAdmin: React.FC<{ salonId: string; onBack: () => void }> = ({
     setEditingProId(null);
     setNewPro({ name: '', email: '', commission: '', productCommission: '', avatar: '' });
     triggerSaveFeedback();
+  };
+
+  const handleToggleOwnerPro = (enabled: boolean) => {
+      if (enabled) {
+          // Add owner as professional
+          if (!ownerProProfile && salon.ownerEmail) {
+              const pro: Professional = {
+                  id: Math.random().toString(36).substr(2, 9),
+                  name: salon.name.split(' ')[0] + ' (Proprietário)', // Default name
+                  email: salon.ownerEmail,
+                  avatarUrl: `https://ui-avatars.com/api/?name=${encodeURIComponent(salon.name)}&background=e11d48&color=fff`,
+                  commissionRate: 100, // Owners usually keep 100% or adjust later
+                  productCommissionRate: 100,
+                  password: salon.password 
+              };
+              updateSalon({ ...salon, professionals: [...salon.professionals, pro] });
+          }
+      } else {
+          // Remove owner from professionals
+          if (ownerProProfile) {
+              const updatedPros = salon.professionals.filter(p => p.id !== ownerProProfile.id);
+              updateSalon({ ...salon, professionals: updatedPros });
+          }
+      }
+      triggerSaveFeedback();
   };
 
   const handleEditPro = (pro: Professional) => {
@@ -305,9 +403,14 @@ export const TenantAdmin: React.FC<{ salonId: string; onBack: () => void }> = ({
           id: Math.random().toString(36).substr(2,9),
           date: blockDate,
           professionalId: blockType === 'professional' ? blockProId : undefined,
-          reason: 'Bloqueio Manual / Folga'
+          reason: blockMode === 'time' ? `Bloqueio: ${blockTime.start}-${blockTime.end}` : 'Bloqueio Dia Inteiro'
       });
       setBlockDate('');
+      triggerSaveFeedback();
+  };
+
+  const handleRemoveBlock = (blockId: string) => {
+      removeBlockedPeriod(salon.id, blockId);
       triggerSaveFeedback();
   };
 
@@ -316,29 +419,89 @@ export const TenantAdmin: React.FC<{ salonId: string; onBack: () => void }> = ({
       case 'dashboard':
         return (
           <div className="space-y-4">
-            <Card className="bg-gradient-to-r from-gray-900 to-gray-800 text-white border-0 overflow-visible relative">
-                <div className="flex justify-between items-end mb-2 relative z-10">
+            {/* --- CARD 1: METAS DO SALÃO (GLOBAL) --- */}
+            <Card className="bg-gradient-to-r from-gray-900 to-gray-800 text-white border-0 overflow-visible relative pb-6">
+                <div className="flex justify-between items-end mb-4 relative z-10">
                     <div>
                         <div className="flex items-center gap-2 text-gray-400 text-xs uppercase font-bold mb-1">
-                            <Target className="w-4 h-4 text-brand-500" /> Meta Mensal
+                            <Target className="w-4 h-4 text-brand-500" /> Faturamento Global (Salão)
                         </div>
-                        <div className="text-2xl font-bold">R$ {totalSales.toFixed(0)}</div>
-                    </div>
-                    <div className="text-right">
-                         <div className="text-xs text-gray-400">Objetivo</div>
-                         <div className="font-bold">R$ {revenueGoal.toFixed(0)}</div>
                     </div>
                 </div>
-                <div className="w-full bg-gray-700 h-3 rounded-full overflow-hidden relative z-10">
-                    <div 
-                        className={`h-full rounded-full transition-all duration-1000 ${progressPercent >= 100 ? 'bg-green-500' : 'bg-brand-500'}`}
-                        style={{ width: `${progressPercent}%` }}
-                    ></div>
-                </div>
-                <div className="text-right text-[10px] text-gray-400 mt-1 relative z-10">
-                    {progressPercent.toFixed(0)}% alcançado
+                
+                <div className="space-y-4 relative z-10">
+                    {/* Diário */}
+                    <div>
+                        <div className="flex justify-between text-xs mb-1">
+                            <span className="text-gray-300">Hoje</span>
+                            <span className="font-bold">R$ {salonMetrics.today.toFixed(0)} / {dailyGoal.toFixed(0)}</span>
+                        </div>
+                        <div className="w-full bg-gray-700 h-2 rounded-full overflow-hidden">
+                            <div className="h-full bg-blue-500 transition-all" style={{ width: `${salonProgress.today}%` }}></div>
+                        </div>
+                    </div>
+                    {/* Semanal */}
+                    <div>
+                        <div className="flex justify-between text-xs mb-1">
+                            <span className="text-gray-300">Semana</span>
+                            <span className="font-bold">R$ {salonMetrics.weekly.toFixed(0)} / {weeklyGoal.toFixed(0)}</span>
+                        </div>
+                        <div className="w-full bg-gray-700 h-2 rounded-full overflow-hidden">
+                            <div className="h-full bg-purple-500 transition-all" style={{ width: `${salonProgress.weekly}%` }}></div>
+                        </div>
+                    </div>
+                    {/* Mensal */}
+                    <div>
+                        <div className="flex justify-between text-xs mb-1">
+                            <span className="text-gray-300">Mês</span>
+                            <span className="font-bold">R$ {salonMetrics.monthly.toFixed(0)} / {revenueGoal.toFixed(0)}</span>
+                        </div>
+                        <div className="w-full bg-gray-700 h-2 rounded-full overflow-hidden">
+                            <div className={`h-full transition-all ${salonProgress.monthly >= 100 ? 'bg-green-500' : 'bg-brand-500'}`} style={{ width: `${salonProgress.monthly}%` }}></div>
+                        </div>
+                    </div>
                 </div>
             </Card>
+
+            {/* --- CARD 2: PRODUTIVIDADE PESSOAL (SE DONO FOR PROFISSIONAL) --- */}
+            {isOwnerPro && ownerMetrics && ownerProgress && (
+                <Card className="bg-white border border-brand-100 shadow-sm relative overflow-hidden">
+                    <div className="flex items-center gap-2 mb-4">
+                        <Users className="w-4 h-4 text-brand-600" />
+                        <h3 className="font-bold text-gray-900 text-sm">Minha Produção (Pessoal)</h3>
+                    </div>
+                    
+                    <div className="grid grid-cols-3 gap-2">
+                        {/* Hoje */}
+                        <div className="text-center p-2 bg-gray-50 rounded-lg">
+                            <span className="text-[10px] text-gray-500 uppercase block">Hoje</span>
+                            <span className="font-bold text-gray-800 text-sm">R$ {ownerMetrics.today.toFixed(0)}</span>
+                            <div className="w-full bg-gray-200 h-1 rounded-full mt-1 overflow-hidden">
+                                <div className="h-full bg-blue-400" style={{ width: `${ownerProgress.today}%` }}></div>
+                            </div>
+                        </div>
+                        {/* Semana */}
+                        <div className="text-center p-2 bg-gray-50 rounded-lg">
+                            <span className="text-[10px] text-gray-500 uppercase block">Semana</span>
+                            <span className="font-bold text-gray-800 text-sm">R$ {ownerMetrics.weekly.toFixed(0)}</span>
+                            <div className="w-full bg-gray-200 h-1 rounded-full mt-1 overflow-hidden">
+                                <div className="h-full bg-purple-400" style={{ width: `${ownerProgress.weekly}%` }}></div>
+                            </div>
+                        </div>
+                        {/* Mês */}
+                        <div className="text-center p-2 bg-gray-50 rounded-lg">
+                            <span className="text-[10px] text-gray-500 uppercase block">Mês</span>
+                            <span className="font-bold text-brand-600 text-sm">R$ {ownerMetrics.monthly.toFixed(0)}</span>
+                            <div className="w-full bg-gray-200 h-1 rounded-full mt-1 overflow-hidden">
+                                <div className="h-full bg-brand-500" style={{ width: `${ownerProgress.monthly}%` }}></div>
+                            </div>
+                        </div>
+                    </div>
+                    <p className="text-[10px] text-gray-400 mt-2 text-center">
+                        Isso é o que você gerou individualmente com seus atendimentos.
+                    </p>
+                </Card>
+            )}
 
             {birthdaysToday.length > 0 && (
                 <div className="bg-pink-50 border border-pink-100 rounded-xl p-4 animate-in slide-in-from-right">
@@ -394,7 +557,7 @@ export const TenantAdmin: React.FC<{ salonId: string; onBack: () => void }> = ({
                </Card>
                {isPro ? (
                  <Card className="p-4">
-                    <div className="text-xs text-gray-500 uppercase">Faturamento</div>
+                    <div className="text-xs text-gray-500 uppercase">Total Receita</div>
                     <div className="text-2xl font-bold text-green-600">R$ {totalSales.toFixed(0)}</div>
                  </Card>
                ) : (
@@ -422,338 +585,31 @@ export const TenantAdmin: React.FC<{ salonId: string; onBack: () => void }> = ({
           </div>
         );
 
-      case 'inventory':
-          return (
-              <div className="space-y-4">
-                  <div className="flex justify-between items-center">
-                      <h3 className="font-bold text-gray-700">Controle de Estoque</h3>
-                      <Button onClick={() => setIsAddingProduct(true)} className="flex items-center gap-1 text-xs">
-                          <Plus className="w-3 h-3" /> Novo
-                      </Button>
-                  </div>
-
-                  {isAddingProduct && (
-                      <Card className="bg-blue-50 border-blue-100">
-                          <div className="space-y-3">
-                              <ImageUpload className="w-full h-32 rounded-lg" currentImage={newProduct.image} placeholder="Foto do Produto" onImageUpload={(b64) => setNewProduct({...newProduct, image: b64})} />
-                              <Input label="Nome do Produto" value={newProduct.name} onChange={e => setNewProduct({...newProduct, name: e.target.value})} className="bg-white" />
-                              <div className="grid grid-cols-3 gap-2">
-                                  <Input label="Qtd Atual" type="number" value={newProduct.quantity} onChange={e => setNewProduct({...newProduct, quantity: e.target.value})} className="bg-white" />
-                                  <Input label="Mínimo" type="number" value={newProduct.minQuantity} onChange={e => setNewProduct({...newProduct, minQuantity: e.target.value})} className="bg-white" />
-                                  <div className="mb-4">
-                                      <label className="block text-sm font-medium text-gray-700 mb-1">Unidade</label>
-                                      <select className="w-full px-3 py-2 border border-gray-300 rounded-md bg-white" value={newProduct.unit} onChange={e => setNewProduct({...newProduct, unit: e.target.value})}>
-                                          <option value="un">Un</option>
-                                          <option value="ml">ml</option>
-                                          <option value="kg">kg</option>
-                                          <option value="lt">Litro</option>
-                                      </select>
-                                  </div>
-                              </div>
-                              
-                              <Input label="Preço de Custo (R$)" type="number" value={newProduct.costPrice} onChange={e => setNewProduct({...newProduct, costPrice: e.target.value})} className="bg-white" />
-
-                              <div className="bg-white p-3 rounded-lg border border-blue-200">
-                                  <label className="flex items-center gap-2 mb-2 cursor-pointer">
-                                      <input type="checkbox" checked={newProduct.isForSale} onChange={e => setNewProduct({...newProduct, isForSale: e.target.checked})} />
-                                      <span className="text-sm font-bold text-gray-800">Disponível para Venda Online?</span>
-                                  </label>
-                                  {newProduct.isForSale && (
-                                      <>
-                                        <Input label="Preço de Venda (R$)" type="number" value={newProduct.salePrice} onChange={e => setNewProduct({...newProduct, salePrice: e.target.value})} className="mb-0" />
-                                        
-                                        {profitData && (
-                                            <div className="mt-2 p-2 rounded text-xs flex justify-between items-center bg-green-50 text-green-700">
-                                                <span className="font-bold">Lucro: R$ {profitData.profit.toFixed(2)}</span>
-                                                <span className="font-mono">Margem: {profitData.margin.toFixed(0)}%</span>
-                                            </div>
-                                        )}
-                                      </>
-                                  )}
-                              </div>
-
-                              <div className="flex gap-2">
-                                  <Button variant="outline" className="flex-1" onClick={() => setIsAddingProduct(false)}>Cancelar</Button>
-                                  <Button className="flex-1" onClick={handleSaveProduct}>Salvar</Button>
-                              </div>
-                          </div>
-                      </Card>
-                  )}
-
-                  <div className="space-y-2">
-                      {salon.products?.length === 0 && <p className="text-gray-400 text-sm text-center py-4">Nenhum produto cadastrado.</p>}
-                      {salon.products?.map(prod => (
-                          <div key={prod.id} className="bg-white p-4 rounded-xl border border-gray-100 shadow-sm flex justify-between items-center relative overflow-hidden">
-                              {prod.isForSale && (
-                                  <div className="absolute top-0 right-0 bg-green-50 text-white text-[10px] font-bold px-2 py-0.5 rounded-bl-lg">
-                                      R$ {prod.salePrice?.toFixed(2)}
-                                  </div>
-                              )}
-                              <div className="flex items-center gap-3">
-                                  {prod.image ? (
-                                      <img src={prod.image} className="w-12 h-12 rounded-lg object-cover bg-gray-100" />
-                                  ) : (
-                                      <div className="w-12 h-12 rounded-lg bg-gray-100 flex items-center justify-center text-gray-400">
-                                          <Package className="w-6 h-6" />
-                                      </div>
-                                  )}
-                                  <div>
-                                      <div className="font-bold text-gray-800 flex items-center gap-2">
-                                          {prod.name}
-                                          {prod.isForSale && <ShoppingBag className="w-3 h-3 text-green-500" />}
-                                      </div>
-                                      <div className="text-xs text-gray-500 flex items-center gap-2">
-                                          <span>Min: {prod.minQuantity} {prod.unit}</span>
-                                          {prod.quantity <= prod.minQuantity && (
-                                              <span className="flex items-center gap-1 text-red-600 font-bold bg-red-50 px-1.5 rounded">
-                                                  <AlertTriangle className="w-3 h-3" /> Baixo
-                                              </span>
-                                          )}
-                                      </div>
-                                      {prod.costPrice && (
-                                          <div className="text-[10px] text-gray-400 mt-0.5">Custo: R$ {prod.costPrice.toFixed(2)}</div>
-                                      )}
-                                  </div>
-                              </div>
-                              <div className="flex items-center gap-3">
-                                  <button onClick={() => updateProduct(salon.id, prod.id, Math.max(0, prod.quantity - 1))} className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center hover:bg-gray-200 text-gray-600">-</button>
-                                  <span className="font-mono font-bold w-8 text-center">{prod.quantity}</span>
-                                  <button onClick={() => updateProduct(salon.id, prod.id, prod.quantity + 1)} className="w-8 h-8 rounded-full bg-brand-50 flex items-center justify-center hover:bg-brand-100 text-brand-600">+</button>
-                              </div>
-                          </div>
-                      ))}
-                  </div>
-              </div>
-          );
-
-      case 'finance':
-        return (
-            <div className="space-y-6">
-                <div className="grid grid-cols-3 gap-2">
-                    <div className="bg-green-50 p-3 rounded-lg border border-green-100">
-                        <div className="text-[10px] uppercase text-green-600 font-bold">Receitas</div>
-                        <div className="text-lg font-bold text-green-700">R$ {totalIncome.toFixed(0)}</div>
-                    </div>
-                    <div className="bg-red-50 p-3 rounded-lg border border-red-100">
-                         <div className="text-[10px] uppercase text-red-600 font-bold">Despesas</div>
-                         <div className="text-lg font-bold text-red-700">R$ {totalExpense.toFixed(0)}</div>
-                    </div>
-                    <div className="bg-white p-3 rounded-lg border border-gray-200">
-                         <div className="text-[10px] uppercase text-gray-500 font-bold">Saldo</div>
-                         <div className={`text-lg font-bold ${balance >= 0 ? 'text-blue-600' : 'text-red-600'}`}>R$ {balance.toFixed(0)}</div>
-                    </div>
-                </div>
-
-                <Button className="w-full flex items-center justify-center gap-2" onClick={() => setIsAddingTrans(true)}>
-                    <Plus className="w-4 h-4" /> Novo Lançamento
-                </Button>
-
-                {isAddingTrans && (
-                    <Card className="bg-gray-50 border-gray-200 animate-in slide-in-from-top-4">
-                        <div className="space-y-3">
-                            <div className="flex gap-2">
-                                <button className={`flex-1 py-2 rounded-md font-bold text-sm ${newTrans.type === 'expense' ? 'bg-red-100 text-red-700 ring-2 ring-red-500' : 'bg-white text-gray-600'}`} onClick={() => setNewTrans({...newTrans, type: 'expense'})}>Despesa</button>
-                                <button className={`flex-1 py-2 rounded-md font-bold text-sm ${newTrans.type === 'income' ? 'bg-green-100 text-green-700 ring-2 ring-green-500' : 'bg-white text-gray-600'}`} onClick={() => setNewTrans({...newTrans, type: 'income'})}>Receita</button>
-                            </div>
-                            <Input placeholder="Descrição (ex: Luz, Água)" value={newTrans.description} onChange={e => setNewTrans({...newTrans, description: e.target.value})} />
-                            <div className="grid grid-cols-2 gap-2">
-                                <Input type="number" placeholder="Valor R$" value={newTrans.amount} onChange={e => setNewTrans({...newTrans, amount: e.target.value})} />
-                                <Input type="date" value={newTrans.date} onChange={e => setNewTrans({...newTrans, date: e.target.value})} />
-                            </div>
-                            <select className="w-full px-3 py-2 border rounded-md" value={newTrans.method} onChange={e => setNewTrans({...newTrans, method: e.target.value as PaymentMethod})}>
-                                <option value="cash">Dinheiro</option>
-                                <option value="pix">Pix</option>
-                                <option value="debit_card">Cartão de Débito</option>
-                                <option value="credit_card">Cartão de Crédito (1x)</option>
-                                <option value="credit_split">Cartão de Crédito (Parcelado)</option>
-                            </select>
-                            
-                            {newTrans.method === 'credit_split' && (
-                                <Input label="Número de Parcelas" type="number" min="2" max="12" value={newTrans.installments} onChange={e => setNewTrans({...newTrans, installments: e.target.value})} />
-                            )}
-
-                            <div className="flex gap-2">
-                                <Button variant="outline" className="flex-1" onClick={() => setIsAddingTrans(false)}>Cancelar</Button>
-                                <Button className="flex-1" onClick={handleAddTransaction}>Salvar</Button>
-                            </div>
-                        </div>
-                    </Card>
-                )}
-
-                {/* Relatório de Comissões */}
-                <Card className="border border-brand-100">
-                    <div className="flex items-center gap-2 mb-4">
-                        <Banknote className="w-5 h-5 text-brand-600" />
-                        <h3 className="font-bold text-gray-800">Previsão de Comissões (Mês Atual)</h3>
-                    </div>
-                    <div className="space-y-3">
-                        {salon.professionals.map(pro => {
-                            const currentMonth = new Date().getMonth();
-                            const proAppts = salon.appointments.filter(a => 
-                                a.professionalId === pro.id && 
-                                a.status === 'completed' &&
-                                new Date(a.date).getMonth() === currentMonth
-                            );
-                            
-                            let serviceRevenue = 0;
-                            let productRevenue = 0;
-
-                            proAppts.forEach(appt => {
-                                const productsTotal = appt.products ? appt.products.reduce((acc, p) => acc + (p.salePrice || 0), 0) : 0;
-                                const servicePrice = appt.price - productsTotal; 
-
-                                serviceRevenue += servicePrice;
-                                productRevenue += productsTotal;
-                            });
-
-                            const serviceCommission = serviceRevenue * (pro.commissionRate / 100);
-                            const productCommission = productRevenue * ((pro.productCommissionRate || 0) / 100);
-                            const totalCommission = serviceCommission + productCommission;
-
-                            return (
-                                <div key={pro.id} className="bg-gray-50 p-3 rounded-lg flex justify-between items-center">
-                                    <div>
-                                        <div className="font-bold text-sm text-gray-900">{pro.name}</div>
-                                        <div className="text-[10px] text-gray-500 mt-1 space-y-0.5">
-                                            <div>Serviços: R$ {serviceRevenue.toFixed(2)} <span className="text-green-600">({pro.commissionRate}%)</span></div>
-                                            <div>Vendas: R$ {productRevenue.toFixed(2)} <span className="text-green-600">({pro.productCommissionRate || 0}%)</span></div>
-                                        </div>
-                                    </div>
-                                    <div className="text-right flex flex-col items-end gap-1">
-                                        <div className="font-bold text-brand-600 text-sm">
-                                            A Pagar: R$ {totalCommission.toFixed(2)}
-                                        </div>
-                                        {totalCommission > 0 && (
-                                            <button 
-                                                onClick={() => handlePayCommission(pro.name, totalCommission)}
-                                                className="text-[10px] bg-white border border-gray-300 px-2 py-1 rounded hover:bg-green-50 hover:border-green-300 hover:text-green-700 transition-colors"
-                                            >
-                                                Registrar Pagamento
-                                            </button>
-                                        )}
-                                    </div>
-                                </div>
-                            );
-                        })}
-                    </div>
-                </Card>
-
-                <div className="space-y-2">
-                    <h3 className="font-bold text-gray-700 text-sm">Últimos Lançamentos</h3>
-                    {salon.transactions.slice().reverse().map(t => (
-                        <div key={t.id} className="bg-white p-3 rounded-lg border border-gray-100 flex justify-between items-center">
-                            <div>
-                                <div className="font-bold text-sm text-gray-800">{t.description}</div>
-                                <div className="text-xs text-gray-500 flex gap-2">
-                                    <span>{new Date(t.date).toLocaleDateString()}</span>
-                                    <span>• {t.paymentMethod}</span>
-                                    {t.installments && <span className="bg-blue-100 text-blue-800 px-1 rounded">Parcela {t.installments.current}/{t.installments.total}</span>}
-                                </div>
-                            </div>
-                            <span className={`font-bold text-sm ${t.type === 'income' ? 'text-green-600' : 'text-red-600'}`}>
-                                {t.type === 'income' ? '+' : '-'} R$ {t.amount.toFixed(2)}
-                            </span>
-                        </div>
-                    ))}
-                    {salon.transactions.length === 0 && <p className="text-gray-400 text-sm text-center">Nenhum lançamento.</p>}
-                </div>
-            </div>
-        );
-
-      case 'agenda':
-        return (
-           <div className="space-y-4">
-             <Button className="w-full" onClick={() => setIsAddingAppt(!isAddingAppt)}>
-                 {isAddingAppt ? 'Cancelar' : '+ Novo Agendamento'}
-             </Button>
-
-             {isAddingAppt && (
-               <Card className="bg-brand-50 border-brand-200">
-                 <div className="space-y-3">
-                   <Input 
-                      className="bg-white"
-                      placeholder="Nome do Cliente" 
-                      value={newAppt.clientName}
-                      onChange={e => setNewAppt({...newAppt, clientName: e.target.value})}
-                   />
-                   <select 
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md bg-white"
-                      value={newAppt.serviceId}
-                      onChange={e => setNewAppt({...newAppt, serviceId: e.target.value})}
-                   >
-                     <option value="">Selecione o Serviço</option>
-                     {salon.services.map(s => <option key={s.id} value={s.id}>{s.name} - R$ {s.price}</option>)}
-                   </select>
-                   <div className="grid grid-cols-2 gap-2">
-                    <Input type="date" className="bg-white" value={newAppt.date} onChange={e => setNewAppt({...newAppt, date: e.target.value})} />
-                    <Input type="time" className="bg-white" value={newAppt.time} onChange={e => setNewAppt({...newAppt, time: e.target.value})} />
-                   </div>
-                   <Button className="w-full" onClick={handleSaveAppt}>Confirmar</Button>
-                 </div>
-               </Card>
-             )}
-
-             <div className="space-y-3">
-                {salon.appointments.length === 0 ? (
-                    <p className="text-gray-500 text-center py-8 text-sm">Agenda vazia.</p>
-                ) : (
-                salon.appointments.map(app => {
-                    const serviceName = salon.services.find(s => s.id === app.serviceId)?.name;
-                    const proName = salon.professionals.find(p => p.id === app.professionalId)?.name;
-                    return (
-                    <div key={app.id} className="flex flex-col p-4 bg-white border border-gray-100 rounded-xl shadow-sm">
-                        <div className="flex justify-between items-start mb-2">
-                            <span className="font-bold text-gray-800 text-lg">
-                                {new Date(app.date).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
-                            </span>
-                            <Badge color={app.status === 'completed' ? 'green' : (app.status === 'cancelled' ? 'red' : 'blue')}>
-                                {app.status === 'completed' ? 'Concluído' : (app.status === 'cancelled' ? 'Cancelado' : 'Agendado')}
-                            </Badge>
-                        </div>
-                        <div className="text-sm text-gray-600 font-medium">{serviceName} com {proName}</div>
-                        
-                        {app.products && app.products.length > 0 && (
-                            <div className="mt-2 pt-2 border-t border-gray-50 text-xs text-gray-500">
-                                <span className="font-bold block mb-1">Compras:</span>
-                                {app.products.map(p => (
-                                    <span key={p.id} className="bg-gray-100 px-2 py-0.5 rounded mr-1 inline-block mb-1">{p.name}</span>
-                                ))}
-                            </div>
-                        )}
-
-                        <div className="text-xs text-gray-500 mt-1 flex items-center gap-1">
-                            <Users className="w-3 h-3" /> {app.clientName}
-                            <span className="mx-1">•</span>
-                            {new Date(app.date).toLocaleDateString()}
-                        </div>
-                    </div>
-                    )
-                })
-                )}
-             </div>
-
-             <Card title="Bloqueios" className="mt-6">
-                 <div className="space-y-3">
-                     <div className="flex gap-2 text-xs">
-                         <button className={`flex-1 py-2 rounded-md ${blockType === 'salon' ? 'bg-gray-800 text-white' : 'bg-gray-100 text-gray-600'}`} onClick={() => setBlockType('salon')}>Salão</button>
-                         <button className={`flex-1 py-2 rounded-md ${blockType === 'professional' ? 'bg-gray-800 text-white' : 'bg-gray-100 text-gray-600'}`} onClick={() => setBlockType('professional')}>Profissional</button>
-                     </div>
-                     <Input type="date" value={blockDate} onChange={(e) => setBlockDate(e.target.value)} />
-                     {blockType === 'professional' && (
-                         <select className="w-full px-3 py-2 border rounded-md bg-white text-sm" value={blockProId} onChange={(e) => setBlockProId(e.target.value)}>
-                             <option value="">Selecione...</option>
-                             {salon.professionals.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
-                         </select>
-                     )}
-                     <Button variant="danger" className="w-full" onClick={handleAddBlock} disabled={!blockDate}>Bloquear</Button>
-                 </div>
-             </Card>
-           </div>
-        );
-      
       case 'team':
         return (
             <div className="space-y-4">
+                 {/* Toggle Owner as Professional */}
+                 <div className="bg-brand-50 border border-brand-100 p-4 rounded-xl flex items-center justify-between">
+                     <div>
+                         <h3 className="font-bold text-brand-900 text-sm">Você também atende clientes?</h3>
+                         <p className="text-xs text-brand-700 mt-1">Ao ativar, você aparecerá na agenda e terá metas pessoais.</p>
+                     </div>
+                     <div className="flex gap-2">
+                         <button 
+                            className={`px-3 py-1.5 rounded text-xs font-bold transition-colors ${isOwnerPro ? 'bg-brand-600 text-white' : 'bg-white text-brand-600 border border-brand-200'}`}
+                            onClick={() => handleToggleOwnerPro(true)}
+                         >
+                             Sim
+                         </button>
+                         <button 
+                            className={`px-3 py-1.5 rounded text-xs font-bold transition-colors ${!isOwnerPro ? 'bg-gray-600 text-white' : 'bg-white text-gray-600 border border-gray-200'}`}
+                            onClick={() => handleToggleOwnerPro(false)}
+                         >
+                             Não
+                         </button>
+                     </div>
+                 </div>
+
                  <div className="grid grid-cols-2 gap-4">
                     {salon.professionals.map(pro => (
                         <div key={pro.id} className="bg-white p-4 rounded-xl border border-gray-100 shadow-sm text-center relative group">
@@ -875,6 +731,156 @@ export const TenantAdmin: React.FC<{ salonId: string; onBack: () => void }> = ({
                  )}
             </div>
         )
+
+      case 'finance':
+        return (
+            <div className="space-y-6">
+                {/* Filtro de Período */}
+                <div className="flex bg-gray-100 p-1 rounded-lg">
+                    <button 
+                        className={`flex-1 py-1.5 text-xs font-bold rounded transition-colors ${financePeriod === 'today' ? 'bg-white shadow text-gray-800' : 'text-gray-500'}`}
+                        onClick={() => setFinancePeriod('today')}
+                    >
+                        Hoje
+                    </button>
+                    <button 
+                        className={`flex-1 py-1.5 text-xs font-bold rounded transition-colors ${financePeriod === 'month' ? 'bg-white shadow text-gray-800' : 'text-gray-500'}`}
+                        onClick={() => setFinancePeriod('month')}
+                    >
+                        Este Mês
+                    </button>
+                </div>
+
+                <div className="grid grid-cols-3 gap-2">
+                    <div className="bg-green-50 p-3 rounded-lg border border-green-100">
+                        <div className="text-[10px] uppercase text-green-600 font-bold">Receitas</div>
+                        <div className="text-lg font-bold text-green-700">R$ {totalIncome.toFixed(0)}</div>
+                    </div>
+                    <div className="bg-red-50 p-3 rounded-lg border border-red-100">
+                         <div className="text-[10px] uppercase text-red-600 font-bold">Despesas</div>
+                         <div className="text-lg font-bold text-red-700">R$ {totalExpense.toFixed(0)}</div>
+                    </div>
+                    <div className="bg-white p-3 rounded-lg border border-gray-200">
+                         <div className="text-[10px] uppercase text-gray-500 font-bold">Saldo</div>
+                         <div className={`text-lg font-bold ${balance >= 0 ? 'text-blue-600' : 'text-red-600'}`}>R$ {balance.toFixed(0)}</div>
+                    </div>
+                </div>
+
+                <Button className="w-full flex items-center justify-center gap-2" onClick={() => setIsAddingTrans(true)}>
+                    <Plus className="w-4 h-4" /> Novo Lançamento
+                </Button>
+
+                {isAddingTrans && (
+                    <Card className="bg-gray-50 border-gray-200 animate-in slide-in-from-top-4">
+                        <div className="space-y-3">
+                            <div className="flex gap-2">
+                                <button className={`flex-1 py-2 rounded-md font-bold text-sm ${newTrans.type === 'expense' ? 'bg-red-100 text-red-700 ring-2 ring-red-500' : 'bg-white text-gray-600'}`} onClick={() => setNewTrans({...newTrans, type: 'expense'})}>Despesa</button>
+                                <button className={`flex-1 py-2 rounded-md font-bold text-sm ${newTrans.type === 'income' ? 'bg-green-100 text-green-700 ring-2 ring-green-500' : 'bg-white text-gray-600'}`} onClick={() => setNewTrans({...newTrans, type: 'income'})}>Receita</button>
+                            </div>
+                            <Input placeholder="Descrição (ex: Luz, Água)" value={newTrans.description} onChange={e => setNewTrans({...newTrans, description: e.target.value})} />
+                            <div className="grid grid-cols-2 gap-2">
+                                <Input type="number" placeholder="Valor R$" value={newTrans.amount} onChange={e => setNewTrans({...newTrans, amount: e.target.value})} />
+                                <Input type="date" value={newTrans.date} onChange={e => setNewTrans({...newTrans, date: e.target.value})} />
+                            </div>
+                            <select className="w-full px-3 py-2 border rounded-md" value={newTrans.method} onChange={e => setNewTrans({...newTrans, method: e.target.value as PaymentMethod})}>
+                                <option value="cash">Dinheiro</option>
+                                <option value="pix">Pix</option>
+                                <option value="debit_card">Cartão de Débito</option>
+                                <option value="credit_card">Cartão de Crédito (1x)</option>
+                                <option value="credit_split">Cartão de Crédito (Parcelado)</option>
+                            </select>
+                            
+                            {newTrans.method === 'credit_split' && (
+                                <Input label="Número de Parcelas" type="number" min="2" max="12" value={newTrans.installments} onChange={e => setNewTrans({...newTrans, installments: e.target.value})} />
+                            )}
+
+                            <div className="flex gap-2">
+                                <Button variant="outline" className="flex-1" onClick={() => setIsAddingTrans(false)}>Cancelar</Button>
+                                <Button className="flex-1" onClick={handleAddTransaction}>Salvar</Button>
+                            </div>
+                        </div>
+                    </Card>
+                )}
+
+                {/* Relatório de Comissões */}
+                <Card className="border border-brand-100">
+                    <div className="flex items-center gap-2 mb-4">
+                        <Banknote className="w-5 h-5 text-brand-600" />
+                        <h3 className="font-bold text-gray-800">Previsão de Comissões (Mês Atual)</h3>
+                    </div>
+                    <div className="space-y-3">
+                        {salon.professionals.map(pro => {
+                            const currentMonth = new Date().getMonth();
+                            const proAppts = salon.appointments.filter(a => 
+                                a.professionalId === pro.id && 
+                                a.status === 'completed' &&
+                                new Date(a.date).getMonth() === currentMonth
+                            );
+                            
+                            let serviceRevenue = 0;
+                            let productRevenue = 0;
+
+                            proAppts.forEach(appt => {
+                                const productsTotal = appt.products ? appt.products.reduce((acc, p) => acc + (p.salePrice || 0), 0) : 0;
+                                const servicePrice = appt.price - productsTotal; 
+
+                                serviceRevenue += servicePrice;
+                                productRevenue += productsTotal;
+                            });
+
+                            const serviceCommission = serviceRevenue * (pro.commissionRate / 100);
+                            const productCommission = productRevenue * ((pro.productCommissionRate || 0) / 100);
+                            const totalCommission = serviceCommission + productCommission;
+
+                            return (
+                                <div key={pro.id} className="bg-gray-50 p-3 rounded-lg flex justify-between items-center">
+                                    <div>
+                                        <div className="font-bold text-sm text-gray-900">{pro.name}</div>
+                                        <div className="text-[10px] text-gray-500 mt-1 space-y-0.5">
+                                            <div>Serviços: R$ {serviceRevenue.toFixed(2)} <span className="text-green-600">({pro.commissionRate}%)</span></div>
+                                            <div>Vendas: R$ {productRevenue.toFixed(2)} <span className="text-green-600">({pro.productCommissionRate || 0}%)</span></div>
+                                        </div>
+                                    </div>
+                                    <div className="text-right flex flex-col items-end gap-1">
+                                        <div className="font-bold text-brand-600 text-sm">
+                                            A Pagar: R$ {totalCommission.toFixed(2)}
+                                        </div>
+                                        {totalCommission > 0 && (
+                                            <button 
+                                                onClick={() => handlePayCommission(pro.name, totalCommission)}
+                                                className="text-[10px] bg-white border border-gray-300 px-2 py-1 rounded hover:bg-green-50 hover:border-green-300 hover:text-green-700 transition-colors"
+                                            >
+                                                Registrar Pagamento
+                                            </button>
+                                        )}
+                                    </div>
+                                </div>
+                            );
+                        })}
+                    </div>
+                </Card>
+
+                <div className="space-y-2">
+                    <h3 className="font-bold text-gray-700 text-sm">Lançamentos ({financePeriod === 'today' ? 'Hoje' : 'Este Mês'})</h3>
+                    {filteredTransactions.slice().reverse().map(t => (
+                        <div key={t.id} className="bg-white p-3 rounded-lg border border-gray-100 flex justify-between items-center">
+                            <div>
+                                <div className="font-bold text-sm text-gray-800">{t.description}</div>
+                                <div className="text-xs text-gray-500 flex gap-2">
+                                    <span>{new Date(t.date).toLocaleDateString()}</span>
+                                    <span>• {t.paymentMethod}</span>
+                                    {t.installments && <span className="bg-blue-100 text-blue-800 px-1 rounded">Parcela {t.installments.current}/{t.installments.total}</span>}
+                                </div>
+                            </div>
+                            <span className={`font-bold text-sm ${t.type === 'income' ? 'text-green-600' : 'text-red-600'}`}>
+                                {t.type === 'income' ? '+' : '-'} R$ {t.amount.toFixed(2)}
+                            </span>
+                        </div>
+                    ))}
+                    {filteredTransactions.length === 0 && <p className="text-gray-400 text-sm text-center">Nenhum lançamento no período.</p>}
+                </div>
+            </div>
+        );
 
       case 'settings':
         return (

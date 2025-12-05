@@ -101,7 +101,6 @@ export const PublicBooking: React.FC<{
       const interval = salon.slotInterval || 30;
       
       const now = new Date();
-      // Safe string comparison for local date to avoid timezone issues
       const year = now.getFullYear();
       const month = String(now.getMonth() + 1).padStart(2, '0');
       const day = String(now.getDate()).padStart(2, '0');
@@ -112,8 +111,6 @@ export const PublicBooking: React.FC<{
 
       const slots = [];
       for (let time = start; time < end; time += interval) {
-          // Check if time has passed if it's today
-          // Add a small buffer (e.g., 15 mins) so user doesn't see a slot that is literally "now"
           if (isToday && time <= currentMinutes + 15) {
               continue;
           }
